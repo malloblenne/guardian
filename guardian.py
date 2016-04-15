@@ -45,13 +45,26 @@ class SpriteSheet(object):
         # Return the image
         return image
 
-
+class PhysicalObject(object):
+    """ Class used to represent a physical object """
+    
+    def __init__(self, scoreValue=0, hitPoints = 1,
+                 immortal = False, damage = 0):
+        """ Constructor """
+        self.scoreValue = scoreValue # score to be assigned when dead
+        self.hitPoints = hitPoints
+        self.immortal = immortal
+        self.damage = damage
+        print ('created physical object')
+        
+        
 class Player(pygame.sprite.Sprite):
     
     
     """ This class represents the player. Spaceship """
     def __init__(self):
         super().__init__()
+        self.physicalObject = PhysicalObject()
         self.sprite_sheet = SpriteSheet("bitmaps/theGuardian.png")
 #        self.spaceship_normal = self.sprite_sheet.get_image(5,80,25,50)
 #        self.spaceship_left   = self.sprite_sheet.get_image(5+6*28,80,25,50)
@@ -71,6 +84,8 @@ class Player(pygame.sprite.Sprite):
         #self.rect = self.image.get_rect()
         self.x_speed = 0
         self.y_speed = 0
+        
+        self.hitPoints = 3
 
     def process_event(self, event):
         """ Update the player location. """
@@ -78,6 +93,8 @@ class Player(pygame.sprite.Sprite):
         #Move player        
         #self.x_speed = 0
         #self.y_speed = 0
+        bullet = None
+        
         if event.type == pygame.KEYDOWN:
             # Figure out if it was an arrow key. If so
             # adjust speed.
@@ -89,6 +106,10 @@ class Player(pygame.sprite.Sprite):
                 self.y_speed =- 3
             elif event.key == pygame.K_DOWN:
                 self.y_speed = 3
+            elif event.key == pygame.K_SPACE:
+                bullet = Bullet()
+                bullet.rect.x = self.rect.x
+                bullet.rect.y = self.rect.y
         # User let up on a key
         elif event.type == pygame.KEYUP:
                 # If it is an arrow key, reset vector back to zero
@@ -103,11 +124,23 @@ class Player(pygame.sprite.Sprite):
         #pos = pygame.mouse.get_pos()
 
         #print('new pos ', self.rect.x, ' ', self.rect.y)
+        return bullet
         
     def update(self):
         #Update pos spaceship
         self.rect.x = self.rect.x + self.x_speed
         self.rect.y = self.rect.y + self.y_speed
+
+        #Check boundaries of the spaceship        
+        if self.rect.y <0:
+            self.rect.y = 0
+        elif self.rect.y > SCREEN_HEIGHT - self.rect.height:
+            self.rect.y = SCREEN_HEIGHT - self.rect.height
+
+        if self.rect.x <0:
+            self.rect.x = 0
+        elif self.rect.x > SCREEN_WIDTH - self.rect.width:
+            self.rect.x = SCREEN_WIDTH - self.rect.width
 
         #change the image accordingly
         if self.x_speed < 0 and self.image != self.spaceship_left:
@@ -131,6 +164,25 @@ class Player(pygame.sprite.Sprite):
         
         #check for collisions
         
+
+class Bullet(pygame.sprite.Sprite):
+    """ This class represents the bullet . """
+    def __init__(self):
+        # Call the parent class (Sprite) constructor
+        super().__init__()
+
+        self.physicalObject = PhysicalObject(damage=1) 
+        self.image = pygame.Surface([4, 10])
+        self.image.fill(WHITE)
+        
+ 
+        self.rect = self.image.get_rect()
+ 
+    def update(self):
+        """ Move the bullet. """
+        self.rect.y -= 3
+        if self.rect.y <= 10:
+            self.physicalObject.hitPoints = 0 #dead
 
 
 class Game(object):
@@ -167,7 +219,9 @@ class Game(object):
                 if self.game_over:
                     self.__init__()
             else:
-                self.player.process_event(event)
+                bullet = self.player.process_event(event)
+                if bullet is not None:
+                    self.all_sprites_list.add(bullet)
 
         return False
 
@@ -179,6 +233,14 @@ class Game(object):
         if not self.game_over:
             # Move all the sprites
             self.all_sprites_list.update()
+            deadList = []
+            
+            for sprite in self.all_sprites_list:
+                if sprite.physicalObject.hitPoints <=0:
+                    print(sprite, ' will be removed')
+                    deadList.append(sprite)
+            for sprite in deadList:
+                self.all_sprites_list.remove(sprite)
 
 
     def display_frame(self, screen):
