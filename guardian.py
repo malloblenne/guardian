@@ -6,6 +6,8 @@ Inspired by  http://programarcadegames.com/
 """
 
 import pygame
+import logging
+import math
 
 #--- Global constants ---
 BLACK = (0, 0, 0)
@@ -20,81 +22,175 @@ SCREEN_HEIGHT = 500
 
 class SpriteSheet(object):
     """ Class used to grab images out of a sprite sheet. """
- 
+
     def __init__(self, file_name):
         """ Constructor. Pass in the file name of the sprite sheet. """
- 
+
         # Load the sprite sheet.
         self.sprite_sheet = pygame.image.load(file_name).convert()
- 
- 
+
     def get_image(self, x, y, width, height):
         """ Grab a single image out of a larger spritesheet
             Pass in the x, y location of the sprite
             and the width and height of the sprite. """
- 
+
         # Create a new blank image
         image = pygame.Surface([width, height]).convert()
- 
+
         # Copy the sprite from the large sheet onto the smaller image
         image.blit(self.sprite_sheet, (0, 0), (x, y, width, height))
- 
+
         # Assuming black works as the transparent color
         #image.set_colorkey(BLACK)
-        image.set_colorkey((38,0,0))
+        image.set_colorkey((38, 0, 0))
         # Return the image
         return image
 
+class PIController(object):
+    """ Class repesenting a PI controller """
+
+    def __init__(self, kp=0.01, ki=0.001, anti_windup=10.0):
+        """ Constructor. Pass the gains proportional and integral """
+        self.kp = kp
+        self.ki = ki
+        self.cum_sum = 0.0
+        self.anti_windup = abs(anti_windup)
+        
+    def control(self, error):
+        control_value = self.kp * error + self.ki * self.cum_sum
+        self.cum_sum = self.cum_sum + error
+        #anti windup
+        self.cum_sum = max(min(self.cum_sum, self.anti_windup),
+                           -self.anti_windup)
+        return control_value
+
 class PhysicalObject(object):
     """ Class used to represent a physical object """
-    
-    def __init__(self, scoreValue=0, hitPoints = 1,
-                 immortal = False, damage = 0):
+
+    def __init__(self, scoreValue=0, hit_points=1,
+                 immortal=False, damage=0):
         """ Constructor """
         self.scoreValue = scoreValue # score to be assigned when dead
-        self.hitPoints = hitPoints
+        self.hit_points = hit_points
         self.immortal = immortal
         self.damage = damage
-        print ('created physical object')
+        logging.debug('created physical object')
+
+
+
+class Enemy1(pygame.sprite.Sprite):
+
+    """ This class represents the player. Spaceship """
+    def __init__(self):
+        """ Constructor """
+        super().__init__()
+        self.physicalObject = PhysicalObject(hit_points=1, damage=1)
+        self.sprite_sheet = SpriteSheet("bitmaps/enemies.png")
+        self.image = self.sprite_sheet.get_image(36, 95, 24, 15)
+        self.rect = self.image.get_rect()
+        self.x_speed = 0
+        self.y_speed = 0
+
+        self.player_x = 0
+        self.player_y = 0
+        self.last_time = pygame.time.get_ticks()
+        self.interval = 700 #ms
+
+        self.rect.y = self.rect.height + 1
+        
+        self.picontrol_x = PIController(kp=0.01, ki=0.01, anti_windup=100.0)
+        self.picontrol_y = PIController(kp=0.01, ki=0.01, anti_windup=100.0)        
+        self.times_update_func_called = 0
+
+    def set_player_position(self, x, y):
+        """ Setter for player position for smarter actions"""
+        self.player_x = x
+        self.player_y = y
+
+
+    def fire(self):
+        bullet = None
+
+        # Shoot if time
+        ticks_now = pygame.time.get_ticks()
+        if ticks_now - self.last_time >= self.interval:
+            self.last_time = ticks_now
+            bullet = Bullet(enemy=True)
+            bullet.rect.x = self.rect.x
+            bullet.rect.y = self.rect.y
+
+        return bullet
+        
+    def update(self):
+        # Move enemy spaceship
+
+        min_y_dist = 5
+        max_y_dist = 10
+        error_x = (self.player_x - self.rect.x)
+        self.x_speed = self.picontrol_x.control(error_x)
+        error_y = self.player_y - self.rect.y
+        offset_max = 3.0
+        freq = 1.0/240.0
+        offset_y = offset_max*math.sin(2.0 * math.pi * 
+                    freq * self.times_update_func_called) - offset_max/2.0 -1.0
+        print('offset_y ', offset_y)
+        self.y_speed = self.picontrol_y.control(error_y) + offset_y
+        
+        self.times_update_func_called = self.times_update_func_called + 1.0
+        self.rect.x = self.rect.x + int(self.x_speed)
+        self.rect.y = self.rect.y + self.y_speed
         
         
+        #Check boundaries of the spaceship
+        if self.rect.y <0:
+            self.rect.y = 0
+        elif self.rect.y > SCREEN_HEIGHT - self.rect.height:
+            self.rect.y = SCREEN_HEIGHT - self.rect.height
+
+        if self.rect.x <0:
+            self.rect.x = 0
+        elif self.rect.x > SCREEN_WIDTH - self.rect.width:
+            self.rect.x = SCREEN_WIDTH - self.rect.width
+
+
 class Player(pygame.sprite.Sprite):
-    
-    
+
+
     """ This class represents the player. Spaceship """
     def __init__(self):
         super().__init__()
-        self.physicalObject = PhysicalObject()
+        self.physicalObject = PhysicalObject(hit_points=3, damage=1)
         self.sprite_sheet = SpriteSheet("bitmaps/theGuardian.png")
 #        self.spaceship_normal = self.sprite_sheet.get_image(5,80,25,50)
 #        self.spaceship_left   = self.sprite_sheet.get_image(5+6*28,80,25,50)
-#        self.spaceship_right  = pygame.transform.flip(self.spaceship_left, 
-#                                                      True, False)        
+#        self.spaceship_right  = pygame.transform.flip(self.spaceship_left,
+#                                                      True, False)
 
-        self.spaceship_normal = self.sprite_sheet.get_image(6,80,24,50)
+        self.spaceship_normal = self.sprite_sheet.get_image(6, 80, 24, 50)
         self.spaceship_power1 = self.spaceship_normal#self.sprite_sheet.get_image(6+2*24,80,24,50)
         self.spaceship_power2 = self.spaceship_normal#self.sprite_sheet.get_image(6+3*24,80,24,50)
-        self.spaceship_left   = self.sprite_sheet.get_image(6+6*24,80,24,50)
-        self.spaceship_right  = pygame.transform.flip(self.spaceship_left, 
-                                                      True, False)        
-        self.image = self.spaceship_normal        
-        self.rect = self.image.get_rect()        
+        self.spaceship_left = self.sprite_sheet.get_image(6+6*24, 80, 24, 50)
+        self.spaceship_right = pygame.transform.flip(self.spaceship_left,
+                                                      True, False)
+        self.image = self.spaceship_normal
+        self.rect = self.image.get_rect()
         #self.image = pygame.Surface([20, 20])
         #self.image.fill(RED)
         #self.rect = self.image.get_rect()
+        self.rect.x = int(SCREEN_WIDTH/2 - self.rect.width/2)
+        self.rect.y = int(SCREEN_HEIGHT - self.rect.height/2)
         self.x_speed = 0
         self.y_speed = 0
-        
-        self.hitPoints = 3
+
 
     def process_event(self, event):
         """ Update the player location. """
 
-        #Move player        
+        #Move player
         #self.x_speed = 0
         #self.y_speed = 0
         bullet = None
-        
+
         if event.type == pygame.KEYDOWN:
             # Figure out if it was an arrow key. If so
             # adjust speed.
@@ -123,15 +219,15 @@ class Player(pygame.sprite.Sprite):
                 self.y_speed=0
         #pos = pygame.mouse.get_pos()
 
-        #print('new pos ', self.rect.x, ' ', self.rect.y)
+        #logging.debug('new pos ', self.rect.x, ' ', self.rect.y)
         return bullet
-        
+
     def update(self):
         #Update pos spaceship
         self.rect.x = self.rect.x + self.x_speed
         self.rect.y = self.rect.y + self.y_speed
 
-        #Check boundaries of the spaceship        
+        #Check boundaries of the spaceship
         if self.rect.y <0:
             self.rect.y = 0
         elif self.rect.y > SCREEN_HEIGHT - self.rect.height:
@@ -144,11 +240,11 @@ class Player(pygame.sprite.Sprite):
 
         #change the image accordingly
         if self.x_speed < 0 and self.image != self.spaceship_left:
-            self.image = self.spaceship_left        
+            self.image = self.spaceship_left
             #self.rect = self.image.get_rect()
         elif self.x_speed > 0 and self.image != self.spaceship_right:
-            self.image = self.spaceship_right        
-            #self.rect = self.image.get_rect()  
+            self.image = self.spaceship_right
+            #self.rect = self.image.get_rect()
         elif self.x_speed == 0:
             if self.image == self.spaceship_normal:
                 self.image = self.spaceship_power1
@@ -158,31 +254,39 @@ class Player(pygame.sprite.Sprite):
                 self.image = self.spaceship_power1
             else:
                 self.image = self.spaceship_normal
-            #self.rect = self.image.get_rect()  
+            #self.rect = self.image.get_rect()
 
        #check for shooting
-        
+
         #check for collisions
-        
+
 
 class Bullet(pygame.sprite.Sprite):
     """ This class represents the bullet . """
-    def __init__(self):
+    def __init__(self, speed=3, enemy=False):
         # Call the parent class (Sprite) constructor
         super().__init__()
 
-        self.physicalObject = PhysicalObject(damage=1) 
+        self.physicalObject = PhysicalObject(damage=1)
+        self.speed = speed
+        self.enemy = enemy #is an enemy of is coming from an ally
         self.image = pygame.Surface([4, 10])
         self.image.fill(WHITE)
-        
- 
         self.rect = self.image.get_rect()
- 
+
+        self.damage = 1
+
     def update(self):
         """ Move the bullet. """
-        self.rect.y -= 3
-        if self.rect.y <= 10:
-            self.physicalObject.hitPoints = 0 #dead
+        if self.enemy is True:
+            self.rect.y += self.speed
+            if self.rect.y >= SCREEN_HEIGHT:
+                self.physicalObject.hit_points = 0 #dead
+        else:
+            self.rect.y -= self.speed
+            if self.rect.y <= 10:
+                self.physicalObject.hit_points = 0 #dead
+
 
 
 class Game(object):
@@ -199,7 +303,7 @@ class Game(object):
     def __init__(self):
         self.score = 0
         self.game_over = False
-        
+
         self.all_sprites_list = pygame.sprite.Group()
 
 
@@ -207,6 +311,10 @@ class Game(object):
         # Create the player
         self.player = Player()
         self.all_sprites_list.add(self.player)
+
+        # Create enemies
+        self.enemy = Enemy1()
+        self.all_sprites_list.add(self.enemy)
 
     def process_events(self):
         """ Process all of the events. Return a "True" if we need
@@ -222,7 +330,6 @@ class Game(object):
                 bullet = self.player.process_event(event)
                 if bullet is not None:
                     self.all_sprites_list.add(bullet)
-
         return False
 
     def run_logic(self):
@@ -232,14 +339,21 @@ class Game(object):
         """
         if not self.game_over:
             # Move all the sprites
+            self.enemy.set_player_position(self.player.rect.x,
+                                           self.player.rect.y)
             self.all_sprites_list.update()
-            deadList = []
             
+            bullet = self.enemy.fire()
+            if bullet is not None:
+                self.all_sprites_list.add(bullet)
+            
+            dead_list = []
+
             for sprite in self.all_sprites_list:
-                if sprite.physicalObject.hitPoints <=0:
-                    print(sprite, ' will be removed')
-                    deadList.append(sprite)
-            for sprite in deadList:
+                if sprite.physicalObject.hit_points <= 0:
+                    logging.debug(sprite, ' will be removed')
+                    dead_list.append(sprite)
+            for sprite in dead_list:
                 self.all_sprites_list.remove(sprite)
 
 
@@ -263,6 +377,8 @@ class Game(object):
 
 def main():
     """ Main program function. """
+    # Initialize logger
+    #logging.getLogger().setLevel(logging.INFO)
     # Initialize Pygame and set up the window
     pygame.init()
 
@@ -291,6 +407,9 @@ def main():
         # Draw the current frame
         game.display_frame(screen)
 
+        #fps
+        #logging.info('FPS: ', clock.get_fps())
+        print('FPS: ', clock.get_fps())
         # Pause for the next frame
         clock.tick(60)
 
