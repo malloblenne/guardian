@@ -69,18 +69,17 @@ class PIController(object):
                            -self.anti_windup)
         return control_value
 
-class PhysicalObject(object):
-    """ Class used to represent a physical object """
 
-    def __init__(self, score_value=0, hit_points=1,
-                 immortal=False, damage=0):
-        """ Constructor """
-        self.score_value = score_value # score to be assigned when dead
-        self.hit_points = hit_points
-        self.immortal = immortal
-        self.damage = damage
-        logging.debug('created physical object')
-
+def create_physical_object_dict(score_value=0, hit_points=1,
+                                immortal=False, damage=0):
+    """ Create a dictionary with filled value for physical object
+    attributes """
+    phy_obj = {}
+    phy_obj['score_value'] = score_value # score to be assigned when dead
+    phy_obj['hit_points'] = hit_points
+    phy_obj['immortal'] = immortal
+    phy_obj['damage'] = damage
+    return phy_obj
 
 
 class Enemy1(pygame.sprite.Sprite):
@@ -90,7 +89,7 @@ class Enemy1(pygame.sprite.Sprite):
     def __init__(self):
         """ Constructor """
         super().__init__()
-        self.physical_obj = PhysicalObject(hit_points=1, damage=1, score_value=2)
+        self.physical_obj = create_physical_object_dict(hit_points=1, damage=1, score_value=2)
         self.sprite_sheet = SpriteSheet("bitmaps/enemies.png")
         self.image = self.sprite_sheet.get_image(36, 95, 24, 15)
         self.rect = self.image.get_rect()
@@ -165,7 +164,7 @@ class Player(pygame.sprite.Sprite):
     """ This class represents the player. Spaceship """
     def __init__(self):
         super().__init__()
-        self.physical_obj = PhysicalObject(hit_points=3, damage=1)
+        self.physical_obj = create_physical_object_dict(hit_points=3, damage=1)
         self.sprite_sheet = SpriteSheet("bitmaps/theGuardian.png")
 #        self.spaceship_normal = self.sprite_sheet.get_image(5,80,25,50)
 #        self.spaceship_left   = self.sprite_sheet.get_image(5+6*28,80,25,50)
@@ -280,7 +279,7 @@ class Bullet(pygame.sprite.Sprite):
         # Call the parent class (Sprite) constructor
         super().__init__()
 
-        self.physical_obj = PhysicalObject(damage=1)
+        self.physical_obj = create_physical_object_dict(damage=1)
         self.speed = speed
         self.enemy = enemy #is an enemy of is coming from an ally
         self.image = pygame.Surface([4, 10])
@@ -294,11 +293,11 @@ class Bullet(pygame.sprite.Sprite):
         if self.enemy is True:
             self.rect.y += self.speed
             if self.rect.y >= SCREEN_HEIGHT:
-                self.physical_obj.hit_points = 0 #dead
+                self.physical_obj['hit_points'] = 0 #dead
         else:
             self.rect.y -= self.speed
             if self.rect.y <= 10:
-                self.physical_obj.hit_points = 0 #dead
+                self.physical_obj['hit_points'] = 0 #dead
 
 
 
@@ -377,7 +376,7 @@ class Game(object):
         This method is run each time through the frame. It
         updates positions and checks for collisions.
         """
-        self.game_over = self.player.physical_obj.hit_points <= 0
+        self.game_over = self.player.physical_obj['hit_points'] <= 0
         if not self.game_over:
 
             self.spawn_enemy()
@@ -401,18 +400,18 @@ class Game(object):
                                                              False)
                 for enemy_obj in enemy_hit_list:
                     if not isinstance(ally_obj, Bullet) or not isinstance(enemy_obj, Bullet):
-                        if ally_obj.physical_obj.immortal is False:
-                            ally_obj.physical_obj.hit_points -= enemy_obj.physical_obj.damage
-                        if enemy_obj.physical_obj.immortal is False:
-                            enemy_obj.physical_obj.hit_points -= ally_obj.physical_obj.damage
-                            self.player.score += enemy_obj.physical_obj.score_value
+                        if ally_obj.physical_obj['immortal'] is False:
+                            ally_obj.physical_obj['hit_points'] -= enemy_obj.physical_obj['damage']
+                        if enemy_obj.physical_obj['immortal'] is False:
+                            enemy_obj.physical_obj['hit_points'] -= ally_obj.physical_obj['damage']
+                            self.player.score += enemy_obj.physical_obj['score_value']
 
 
             # Check for dead objects to be removed
             dead_list = []
 
             for sprite in self.all_sprites_list:
-                if sprite.physical_obj.hit_points <= 0:
+                if sprite.physical_obj['hit_points'] <= 0:
                     logging.debug(sprite, ' will be removed')
                     dead_list.append(sprite)
             for sprite in dead_list:
@@ -449,7 +448,7 @@ class Game(object):
 
             # Hit points
             text_hp = self.fps_font.render("HP {0}".format(
-                self.player.physical_obj.hit_points), True, WHITE)
+                self.player.physical_obj['hit_points']), True, WHITE)
             screen.blit(text_hp, [SCREEN_WIDTH -95, 40])
 
 
