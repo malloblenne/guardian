@@ -1,8 +1,10 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Sun Apr 10 18:26:05 2016
-Inspired by  http://programarcadegames.com/
-@author: Mauro
+Inspired by the tutorials: http://programarcadegames.com/
+
+@author: Mauro Brenna
 """
 
 import logging
@@ -84,15 +86,17 @@ def create_physical_object_dict(score_value=0, hit_points=1,
 
 class Enemy1(pygame.sprite.Sprite):
 
+    image = None
 
     """ This class represents the player. Spaceship """
     def __init__(self):
         """ Constructor """
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=1, damage=1, score_value=2)
-        self.sprite_sheet = SpriteSheet("bitmaps/enemies.png")
-        self.image = self.sprite_sheet.get_image(36, 95, 24, 15)
-        self.rect = self.image.get_rect()
+        if Enemy1.image is None:
+            sprite_sheet = SpriteSheet("bitmaps/enemies.png")
+            Enemy1.image = sprite_sheet.get_image(36, 95, 24, 15)
+        self.rect = Enemy1.image.get_rect()
         self.x_speed = 0
         self.y_speed = 0
 
@@ -361,7 +365,8 @@ class Game(object):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return True
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            if (event.type == pygame.MOUSEBUTTONDOWN or 
+               (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN)):
                 if self.game_over:
                     self.__init__()
             else:
@@ -433,7 +438,9 @@ class Game(object):
         if self.game_over:
             #font = pygame.font.Font("Serif", 25)
             font = pygame.font.SysFont("serif", 25)
-            text = font.render("Game Over, click to restart", True, WHITE)
+            text = font.render(
+                "Game Over, click the mouse or press enter to restart",
+                True, WHITE)
             center_x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
             center_y = (SCREEN_HEIGHT // 2) - (text.get_height() // 2)
             screen.blit(text, [center_x, center_y])
@@ -497,6 +504,8 @@ def main():
     # Close window and exit
     pygame.quit()
 
-# Call the main function, start up the game
+
+
+# Main function
 if __name__ == "__main__":
     main()
