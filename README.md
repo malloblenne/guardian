@@ -6,7 +6,7 @@ It came natural to me to start my adventure in the world of programming videogam
 ## Purpose of the project
 
 My idea is to keep the game logic as simple as possible and let it be my first little creature.
-I don't want to make it too fancy, using design patterns like factory or adaptors or others. I am also learning python in the middle, so the code is not super polished.
+I don't want to make it too fancy, using design patterns like factory or adapters or others. I am also learning python in the middle, so the code is not super polished.
 But I want to keep the game enjoyable and fun.
 
 ## Install
