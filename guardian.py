@@ -10,6 +10,7 @@ Inspired by the tutorials: http://programarcadegames.com/
 import logging
 import math
 import random
+import os
 
 
 import pygame
@@ -193,7 +194,8 @@ class Player(pygame.sprite.Sprite):
 
         #http://programarcadegames.com/index.php?
         #chapter=bitmapped_graphics_and_sound
-        self.fire_sound = pygame.mixer.Sound('sounds/laser5.ogg')
+        self.fire_sound = pygame.mixer.Sound(os.path.join('sounds', 
+                                                          'laser5.ogg'))
         self.score = 0
 
     def process_event(self, event):
@@ -202,7 +204,7 @@ class Player(pygame.sprite.Sprite):
         #Move player
         #self.x_speed = 0
         #self.y_speed = 0
-        bullet = None
+        bullet = None 
 
         if event.type == pygame.KEYDOWN:
             # Figure out if it was an arrow key. If so
@@ -338,6 +340,10 @@ class Game(object):
 
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
+        
+        # http://www.khinsider.com/midi/nes/guardian-legend
+        pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
+        pygame.mixer.music.play(-1)
 
     def add_enemy(self):
         """ Create an instance of an enemy. """
@@ -382,7 +388,9 @@ class Game(object):
         updates positions and checks for collisions.
         """
         self.game_over = self.player.physical_obj['hit_points'] <= 0
-        if not self.game_over:
+        if self.game_over:
+            pygame.mixer.music.stop()
+        else:
 
             self.spawn_enemy()
 
