@@ -127,8 +127,8 @@ class Enemy1(pygame.sprite.Sprite):
         if ticks_now - self.last_time >= self.interval:
             self.last_time = ticks_now
             bullet = Bullet(enemy=True)
-            bullet.rect.x = self.rect.x
-            bullet.rect.y = self.rect.y
+            bullet.rect.x = self.rect.x + self.rect.width//2
+            bullet.rect.y = self.rect.y + self.rect.height
 
         return bullet
 
@@ -170,11 +170,8 @@ class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=3, damage=1)
-        self.sprite_sheet = SpriteSheet("bitmaps/theGuardian.png")
-#        self.spaceship_normal = self.sprite_sheet.get_image(5,80,25,50)
-#        self.spaceship_left   = self.sprite_sheet.get_image(5+6*28,80,25,50)
-#        self.spaceship_right  = pygame.transform.flip(self.spaceship_left,
-#                                                      True, False)
+        self.sprite_sheet = SpriteSheet(os.path.join('bitmaps',
+                                                     'theGuardian.png'))
 
         self.spaceship_normal = self.sprite_sheet.get_image(7, 87, 23, 30)
         self.spaceship_power1 = self.sprite_sheet.get_image(65, 87, 23, 30)
@@ -182,11 +179,12 @@ class Player(pygame.sprite.Sprite):
         self.spaceship_left = self.sprite_sheet.get_image(155, 87, 23, 30)
         self.spaceship_right = pygame.transform.flip(self.spaceship_left,
                                                      True, False)
+
+        bullet_sprite_sheet = SpriteSheet(os.path.join('bitmaps',
+                                                       'bullet.png'))
+        self.bullet_image = bullet_sprite_sheet.get_image(8, 4, 7, 21)
         self.image = self.spaceship_normal
         self.rect = self.image.get_rect()
-        #self.image = pygame.Surface([20, 20])
-        #self.image.fill(RED)
-        #self.rect = self.image.get_rect()
         self.rect.x = SCREEN_WIDTH//2 - self.rect.width//2
         self.rect.y = SCREEN_HEIGHT - self.rect.height//2
         self.x_speed_left = 0
@@ -199,6 +197,15 @@ class Player(pygame.sprite.Sprite):
         self.fire_sound = pygame.mixer.Sound(os.path.join('sounds',
                                                           'laser5.ogg'))
         self.score = 0
+
+    def create_bullet(self):
+        """ Generate a bullet. """
+        bullet = Bullet(image=self.bullet_image)
+        
+        bullet.rect.x = self.rect.x + self.rect.width//2 -3
+        bullet.rect.y = self.rect.y
+
+        return bullet
 
     def process_event(self, event):
         """ Update the player location. """
@@ -218,9 +225,7 @@ class Player(pygame.sprite.Sprite):
             elif event.key == pygame.K_DOWN:
                 self.y_speed_down = 3
             elif event.key == pygame.K_SPACE:
-                bullet = Bullet()
-                bullet.rect.x = self.rect.x
-                bullet.rect.y = self.rect.y
+                bullet = self.create_bullet()
                 self.fire_sound.play()
         # User let up on a key
         elif event.type == pygame.KEYUP:
@@ -283,15 +288,19 @@ class Player(pygame.sprite.Sprite):
 
 class Bullet(pygame.sprite.Sprite):
     """ This class represents the bullet . """
-    def __init__(self, speed=3, enemy=False):
+    def __init__(self, speed=3, enemy=False, image=None):
         # Call the parent class (Sprite) constructor
         super().__init__()
 
         self.physical_obj = create_physical_object_dict(damage=1)
         self.speed = speed
         self.enemy = enemy #is an enemy of is coming from an ally
-        self.image = pygame.Surface([4, 10])
-        self.image.fill(WHITE)
+        if image:
+            self.image = image
+        else:
+            self.image = pygame.Surface([4, 10])
+            self.image.fill(WHITE)
+        
         self.rect = self.image.get_rect()
 
         self.damage = 1
