@@ -100,6 +100,7 @@ class Enemy1(pygame.sprite.Sprite):
         self.rect = Enemy1.image.get_rect()
         self.x_speed = 0
         self.y_speed = 0
+        self.max_speed = 10.0
 
         self.player_x = 0
         self.player_y = 0
@@ -127,7 +128,7 @@ class Enemy1(pygame.sprite.Sprite):
         if ticks_now - self.last_time >= self.interval:
             self.last_time = ticks_now
             bullet = Bullet(enemy=True)
-            bullet.rect.x = self.rect.x + self.rect.width//2
+            bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
 
         return bullet
@@ -135,16 +136,22 @@ class Enemy1(pygame.sprite.Sprite):
     def update(self):
         """ Update enemy ship"""
         # Move enemy spaceship
+        enemy_center_x = self.rect.x + self.rect.width//2
+        enemy_center_y = self.rect.y + self.rect.height//2
+        error_x = (self.player_x - enemy_center_x)
 
-        error_x = (self.player_x - self.rect.x)
         self.x_speed = self.picontrol_x.control(error_x)
-        error_y = self.player_y - self.rect.y
+        self.x_speed = min(max(self.x_speed, -self.max_speed), self.max_speed)
+
+
+        error_y = self.player_y - enemy_center_y
         offset_max = 3.0
         freq = 1.0/240.0
-        offset_y = offset_max * math.sin(2.0 * math.pi *
-                                         freq * self.times_update_func_called) - offset_max/2.0 -1.0
-        #print('offset_y ', offset_y)
+        sin_value = math.sin(2.0 * math.pi * freq * self.times_update_func_called)
+        offset_y = offset_max * sin_value  - offset_max/2.0 -1.0
+
         self.y_speed = self.picontrol_y.control(error_y) + offset_y
+        self.y_speed = min(max(self.y_speed, -self.max_speed), self.max_speed)
 
         self.times_update_func_called = self.times_update_func_called + 1.0
         self.rect.x = self.rect.x + int(self.x_speed)
@@ -201,8 +208,8 @@ class Player(pygame.sprite.Sprite):
     def create_bullet(self):
         """ Generate a bullet. """
         bullet = Bullet(image=self.bullet_image)
-        
-        bullet.rect.x = self.rect.x + self.rect.width//2 -3
+
+        bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
         bullet.rect.y = self.rect.y
 
         return bullet
@@ -300,7 +307,7 @@ class Bullet(pygame.sprite.Sprite):
         else:
             self.image = pygame.Surface([4, 10])
             self.image.fill(WHITE)
-        
+
         self.rect = self.image.get_rect()
 
         self.damage = 1
@@ -332,6 +339,7 @@ class Game(object):
     def __init__(self):
         self.score = 0
         self.game_over = False
+        self.game_over_music_enabled = False
         self.fps = 0.0
         self.fps_font = pygame.font.SysFont("serif", 25)
 
@@ -386,7 +394,7 @@ class Game(object):
                (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN)):
                 if self.game_over:
                     self.__init__()
-            else:
+            elif not self.game_over:
                 bullet = self.player.process_event(event)
                 if bullet is not None:
                     self.all_sprites_list.add(bullet)
@@ -400,17 +408,25 @@ class Game(object):
         """
         self.game_over = self.player.physical_obj['hit_points'] <= 0
         if self.game_over:
-            pygame.mixer.music.stop()
+            if not self.game_over_music_enabled and pygame.mixer:
+                pygame.mixer.music.stop()
+                pygame.mixer.music.load(os.path.join('sounds', 'game-over.mid'))
+                pygame.mixer.music.play(-1)
+                self.game_over_music_enabled = True
         else:
 
             self.spawn_enemy()
 
             # Move all the sprites
+            player_x = self.player.rect.x + self.player.rect.width//2
+            player_y = self.player.rect.y + self.player.rect.height//2
+
             for enemy in self.enemy_list:
-                enemy.set_player_position(self.player.rect.x,
-                                          self.player.rect.y)
+                enemy.set_player_position(player_x, player_y)
+
             self.all_sprites_list.update()
 
+            # Add new bullet
             for enemy in self.enemy_list:
                 bullet = enemy.fire()
                 if bullet is not None:
