@@ -86,17 +86,17 @@ def create_physical_object_dict(score_value=0, hit_points=1,
 
 
 class Enemy1(pygame.sprite.Sprite):
+    """ This class represents the player. Spaceship """
 
     image = None
 
-    """ This class represents the player. Spaceship """
     def __init__(self):
         """ Constructor """
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=1, damage=1, score_value=2)
         if Enemy1.image is None:
             sprite_sheet = SpriteSheet("bitmaps/enemies.png")
-            Enemy1.image = sprite_sheet.get_image(36, 95, 24, 15)
+            Enemy1.image = sprite_sheet.get_image(35, 95, 16, 14)
         self.rect = Enemy1.image.get_rect()
         self.x_speed = 0
         self.y_speed = 0
@@ -176,10 +176,10 @@ class Player(pygame.sprite.Sprite):
 #        self.spaceship_right  = pygame.transform.flip(self.spaceship_left,
 #                                                      True, False)
 
-        self.spaceship_normal = self.sprite_sheet.get_image(6, 80, 24, 50)
-        self.spaceship_power1 = self.spaceship_normal#self.sprite_sheet.get_image(6+2*24,80,24,50)
-        self.spaceship_power2 = self.spaceship_normal#self.sprite_sheet.get_image(6+3*24,80,24,50)
-        self.spaceship_left = self.sprite_sheet.get_image(6+6*24, 80, 24, 50)
+        self.spaceship_normal = self.sprite_sheet.get_image(7, 87, 23, 30)
+        self.spaceship_power1 = self.sprite_sheet.get_image(65, 87, 23, 30)
+        self.spaceship_power2 = self.sprite_sheet.get_image(95, 87, 23, 30)
+        self.spaceship_left = self.sprite_sheet.get_image(155, 87, 23, 30)
         self.spaceship_right = pygame.transform.flip(self.spaceship_left,
                                                      True, False)
         self.image = self.spaceship_normal
@@ -193,10 +193,10 @@ class Player(pygame.sprite.Sprite):
         self.x_speed_right = 0
         self.y_speed_up = 0
         self.y_speed_down = 0
-        
+
         #http://programarcadegames.com/index.php?
         #chapter=bitmapped_graphics_and_sound
-        self.fire_sound = pygame.mixer.Sound(os.path.join('sounds', 
+        self.fire_sound = pygame.mixer.Sound(os.path.join('sounds',
                                                           'laser5.ogg'))
         self.score = 0
 
@@ -342,7 +342,7 @@ class Game(object):
 
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
-        
+
         # http://www.khinsider.com/midi/nes/guardian-legend
         pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
         pygame.mixer.music.play(-1)
@@ -373,7 +373,7 @@ class Game(object):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return True
-            if (event.type == pygame.MOUSEBUTTONDOWN or 
+            if (event.type == pygame.MOUSEBUTTONDOWN or
                (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN)):
                 if self.game_over:
                     self.__init__()
