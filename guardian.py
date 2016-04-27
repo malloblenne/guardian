@@ -201,7 +201,8 @@ class Player(pygame.sprite.Sprite):
 
         #http://programarcadegames.com/index.php?
         #chapter=bitmapped_graphics_and_sound
-        self.fire_sound = pygame.mixer.Sound(os.path.join('sounds',
+        if pygame.mixer:
+            self.fire_sound = pygame.mixer.Sound(os.path.join('sounds',
                                                           'laser5.ogg'))
         self.score = 0
 
@@ -233,7 +234,8 @@ class Player(pygame.sprite.Sprite):
                 self.y_speed_down = 3
             elif event.key == pygame.K_SPACE:
                 bullet = self.create_bullet()
-                self.fire_sound.play()
+                if pygame.mixer:
+                    self.fire_sound.play()
         # User let up on a key
         elif event.type == pygame.KEYUP:
                 # If it is an arrow key, reset vector back to zero
@@ -360,9 +362,10 @@ class Game(object):
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
 
-        # http://www.khinsider.com/midi/nes/guardian-legend
-        pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
-        pygame.mixer.music.play(-1)
+        if pygame.mixer:
+            # http://www.khinsider.com/midi/nes/guardian-legend
+            pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
+            pygame.mixer.music.play(-1)
 
     def add_enemy(self):
         """ Create an instance of an enemy. """
