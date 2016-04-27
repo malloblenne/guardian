@@ -189,9 +189,11 @@ class Player(pygame.sprite.Sprite):
         #self.rect = self.image.get_rect()
         self.rect.x = SCREEN_WIDTH//2 - self.rect.width//2
         self.rect.y = SCREEN_HEIGHT - self.rect.height//2
-        self.x_speed = 0
-        self.y_speed = 0
-
+        self.x_speed_left = 0
+        self.x_speed_right = 0
+        self.y_speed_up = 0
+        self.y_speed_down = 0
+        
         #http://programarcadegames.com/index.php?
         #chapter=bitmapped_graphics_and_sound
         self.fire_sound = pygame.mixer.Sound(os.path.join('sounds', 
@@ -202,21 +204,19 @@ class Player(pygame.sprite.Sprite):
         """ Update the player location. """
 
         #Move player
-        #self.x_speed = 0
-        #self.y_speed = 0
-        bullet = None 
+        bullet = None
 
         if event.type == pygame.KEYDOWN:
             # Figure out if it was an arrow key. If so
             # adjust speed.
             if event.key == pygame.K_LEFT:
-                self.x_speed = -3
+                self.x_speed_left = -3
             elif event.key == pygame.K_RIGHT:
-                self.x_speed = 3
+                self.x_speed_right = 3
             elif event.key == pygame.K_UP:
-                self.y_speed = -3
+                self.y_speed_up = -3
             elif event.key == pygame.K_DOWN:
-                self.y_speed = 3
+                self.y_speed_down = 3
             elif event.key == pygame.K_SPACE:
                 bullet = Bullet()
                 bullet.rect.x = self.rect.x
@@ -226,13 +226,13 @@ class Player(pygame.sprite.Sprite):
         elif event.type == pygame.KEYUP:
                 # If it is an arrow key, reset vector back to zero
             if event.key == pygame.K_LEFT:
-                self.x_speed = 0
+                self.x_speed_left = 0
             elif event.key == pygame.K_RIGHT:
-                self.x_speed = 0
+                self.x_speed_right = 0
             elif event.key == pygame.K_UP:
-                self.y_speed = 0
+                self.y_speed_up = 0
             elif event.key == pygame.K_DOWN:
-                self.y_speed = 0
+                self.y_speed_down = 0
         #pos = pygame.mouse.get_pos()
 
         #logging.debug('new pos ', self.rect.x, ' ', self.rect.y)
@@ -242,8 +242,10 @@ class Player(pygame.sprite.Sprite):
         """ Update player spaceship """
 
         #Update pos spaceship
-        self.rect.x = self.rect.x + self.x_speed
-        self.rect.y = self.rect.y + self.y_speed
+        x_speed = self.x_speed_left + self.x_speed_right
+        y_speed = self.y_speed_up + self.y_speed_down
+        self.rect.x = self.rect.x + x_speed
+        self.rect.y = self.rect.y + y_speed
 
         #Check boundaries of the spaceship
         if self.rect.y < 0:
@@ -257,13 +259,13 @@ class Player(pygame.sprite.Sprite):
             self.rect.x = SCREEN_WIDTH - self.rect.width
 
         #change the image accordingly
-        if self.x_speed < 0 and self.image != self.spaceship_left:
+        if x_speed < 0 and self.image != self.spaceship_left:
             self.image = self.spaceship_left
             #self.rect = self.image.get_rect()
-        elif self.x_speed > 0 and self.image != self.spaceship_right:
+        elif x_speed > 0 and self.image != self.spaceship_right:
             self.image = self.spaceship_right
             #self.rect = self.image.get_rect()
-        elif self.x_speed == 0:
+        elif x_speed == 0:
             if self.image == self.spaceship_normal:
                 self.image = self.spaceship_power1
             elif self.image == self.spaceship_power1:
