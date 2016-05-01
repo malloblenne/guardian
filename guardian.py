@@ -11,6 +11,7 @@ import logging
 import math
 import random
 import os
+import itertools
 
 
 import pygame
@@ -20,6 +21,7 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
+PURPLE = (128, 0, 128)
 
 SCREEN_WIDTH = 700
 SCREEN_HEIGHT = 500
@@ -85,8 +87,196 @@ def create_physical_object_dict(score_value=0, hit_points=1,
     return phy_obj
 
 
-class Enemy1(pygame.sprite.Sprite):
+class Whale(pygame.sprite.Sprite):
     """ This class represents the player. Spaceship """
+
+    images = []
+    xs_circle = []
+    ys_circle = []
+
+    def __init__(self):
+        """ Constructor """
+        super().__init__()
+        self.physical_obj = create_physical_object_dict(hit_points=50, damage=1,
+                                                        score_value=1000//50)
+
+        if not Whale.images:
+            #Load images
+            sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'bosses.png'))
+            Whale.images.append(sprite_sheet.get_image(82, 359, 46, 110)) #pin left, eye right
+            Whale.images.append(sprite_sheet.get_image(138, 359, 46, 110)) #pin left, eye center
+            Whale.images.append(pygame.transform.flip(Whale.images[-1], True, False)) #mirror
+            Whale.images.append(sprite_sheet.get_image(195, 359, 46, 110)) #pin left, eye left
+            Whale.images.append(sprite_sheet.get_image(318, 359, 62, 110)) #pin right, half open mouth
+            Whale.images.append(sprite_sheet.get_image(398, 358, 62, 126)) #pin left, open mouth
+        if not Whale.xs_circle:
+            Whale.xs_circle, Whale.ys_circle = self.circular_motion()
+            Whale.xs_circle.extend(reversed(Whale.xs_circle))
+            Whale.ys_circle.extend(reversed(Whale.ys_circle))
+
+        self.rect = Whale.images[0].get_rect()
+        self.max_speed = 5
+        self.x_speed = 0
+        self.y_speed = 0
+        self.x_speed_old = 0
+        self.y_speed_old = 0
+        self.player_x = 0
+        self.player_y = 0
+        self.player_x_filt = 0
+        self.player_y_filt = 0
+
+        self.last_time = pygame.time.get_ticks()
+        self.interval = 700 #ms
+        self.last_time_change_behaviour = self.last_time
+        self.interval_behaviour = 10000 #ms
+        self.behaviour = 0
+        self.last_time_fire = self.last_time
+        self.interval_fire = 4000
+
+        self.image_iterator = itertools.cycle(Whale.images)
+        self.x_circle_iterator = itertools.cycle(Whale.xs_circle)
+        self.y_circle_iterator = itertools.cycle(Whale.ys_circle)
+        self.image = next(self.image_iterator)
+        self.picontrol_x = PIController(kp=0.5, ki=0.05, anti_windup=100.0)
+        self.picontrol_y = PIController(kp=0.5, ki=0.05, anti_windup=100.0)
+        # alpha of exponential smoothing is 3/num_it for 95% constant sig
+        self.alpha_exp_smoothing = 3.0/800
+
+
+    def exponential_smoothing(self, alpha, val, old_filt_val):
+        """ Exponential smoothing """
+        return alpha * val + (1.0 - alpha) * old_filt_val
+        
+    def set_player_position(self, x_pos, y_pos):
+        """ Setter for player position for smarter actions"""
+        self.player_x = x_pos
+        self.player_y = y_pos
+
+        if self.player_x_filt == 0 and self.player_y_filt == 0:
+            self.player_x_filt = x_pos
+            self.player_y_filt = y_pos
+
+        # exponential smoothing
+        alpha = self.alpha_exp_smoothing
+        self.player_x_filt = x_pos*alpha + (1.0 - alpha)*self.player_x_filt
+        self.player_y_filt = y_pos*alpha + (1.0 - alpha)*self.player_y_filt
+
+
+    def fire(self):
+        """ Create bullet based on time interval"""
+        bullets = []
+
+        # Shoot if time
+        ticks_now = pygame.time.get_ticks()
+        if ticks_now - self.last_time_fire >= self.interval_fire:
+            self.last_time_fire = ticks_now
+            # Center            
+            bullet = Bullet(enemy=True)
+            bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
+            bullet.rect.y = self.rect.y + self.rect.height
+            bullets.append(bullet)
+            # Left           
+            bullet = Bullet(enemy=True, x_speed=-3)
+            bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
+            bullet.rect.y = self.rect.y + self.rect.height
+            bullet.image.fill(RED)
+            bullets.append(bullet)
+            # Left           
+            bullet = Bullet(enemy=True, x_speed=-1)
+            bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
+            bullet.rect.y = self.rect.y + self.rect.height
+            bullet.image.fill(PURPLE)
+            bullets.append(bullet)
+            # Right           
+            bullet = Bullet(enemy=True, x_speed=+3)
+            bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
+            bullet.rect.y = self.rect.y + self.rect.height
+            bullet.image.fill(RED)
+            bullets.append(bullet)
+            # Right          
+            bullet = Bullet(enemy=True, x_speed=+1)
+            bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
+            bullet.rect.y = self.rect.y + self.rect.height
+            bullet.image.fill(PURPLE)
+            bullets.append(bullet)
+
+        return bullets
+
+
+
+    def update_animation(self):
+        """ Update animation """
+        # Shoot if time
+        ticks_now = pygame.time.get_ticks()
+        if ticks_now - self.last_time >= self.interval:
+            self.last_time = ticks_now
+            self.image = next(self.image_iterator)
+        if ticks_now - self.last_time_change_behaviour >= self.interval_behaviour:
+            self.last_time_change_behaviour = ticks_now
+            self.behaviour = (self.behaviour + 1 ) % 2
+
+    def circular_motion(self):
+        """ Circular motion """
+        r = 130#SCREEN_WIDTH/3.0
+        num_steps = 100
+        step = math.pi/num_steps
+        angles = [x*step  for x in range(0,num_steps)]#range(0,math.pi,step)
+        x_val = [r*cos_val for cos_val in [math.cos(angle) for angle in angles]]
+        y_val = [r*sin_val for sin_val in [math.sin(angle) for angle in angles]]
+        return x_val, y_val
+
+    def update(self):
+        """ Update whale """
+
+        self.update_animation()
+        x_rect_old = self.rect.x
+        y_rect_old = self.rect.y
+        self.x_speed_old = self.x_speed
+        self.y_speed_old = self.y_speed
+
+        enemy_center_x = self.rect.x + self.rect.width//2
+        enemy_center_y = self.rect.y + self.rect.height//2
+        error_x = (self.player_x_filt - enemy_center_x)
+
+        self.x_speed = self.picontrol_x.control(error_x)
+        self.x_speed = min(max(self.x_speed, -self.max_speed), self.max_speed)
+
+
+        error_y = self.player_y_filt - enemy_center_y
+
+        self.y_speed = self.picontrol_y.control(error_y)
+        self.y_speed = min(max(self.y_speed, -self.max_speed), self.max_speed)
+
+        x_circle = next(self.x_circle_iterator)
+        y_circle = next(self.y_circle_iterator)
+
+        if self.behaviour == 1:
+            self.alpha_exp_smoothing = 3.0/300.0
+            x_pos = self.rect.x + self.x_speed
+            y_pos = self.rect.y + self.y_speed
+        else:
+            self.alpha_exp_smoothing = 3.0/800.0
+            x_pos = self.player_x_filt + x_circle
+            y_pos = self.player_y_filt - y_circle - self.rect.height
+
+
+        self.rect = self.image.get_rect()
+        alpha = 3.0/20.0        
+        self.rect.x = alpha * x_pos + (1.0 - alpha) * x_rect_old
+        self.rect.y = alpha * y_pos + (1.0 - alpha) * y_rect_old
+
+        #Check boundaries of the spaceship
+        if self.rect.y > SCREEN_HEIGHT - self.rect.height:
+            self.rect.y = SCREEN_HEIGHT - self.rect.height
+
+        if self.rect.x < 0:
+            self.rect.x = 0
+        elif self.rect.x > SCREEN_WIDTH - self.rect.width:
+            self.rect.x = SCREEN_WIDTH - self.rect.width
+
+
+class EnemySmallSpaceship(pygame.sprite.Sprite):
+    """ This class represents a specific enemy. Spaceship """
 
     image = None
 
@@ -94,10 +284,10 @@ class Enemy1(pygame.sprite.Sprite):
         """ Constructor """
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=1, damage=1, score_value=2)
-        if Enemy1.image is None:
-            sprite_sheet = SpriteSheet("bitmaps/enemies.png")
-            Enemy1.image = sprite_sheet.get_image(35, 95, 16, 14)
-        self.rect = Enemy1.image.get_rect()
+        if EnemySmallSpaceship.image is None:
+            sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'enemies.png'))
+            EnemySmallSpaceship.image = sprite_sheet.get_image(35, 95, 16, 14)
+        self.rect = EnemySmallSpaceship.image.get_rect()
         self.x_speed = 0
         self.y_speed = 0
         self.max_speed = 10.0
@@ -121,7 +311,7 @@ class Enemy1(pygame.sprite.Sprite):
 
     def fire(self):
         """ Create bullet based on time interval"""
-        bullet = None
+        bullets = []
 
         # Shoot if time
         ticks_now = pygame.time.get_ticks()
@@ -130,8 +320,9 @@ class Enemy1(pygame.sprite.Sprite):
             bullet = Bullet(enemy=True)
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
+            bullets.append(bullet)
 
-        return bullet
+        return bullets
 
     def update(self):
         """ Update enemy ship"""
@@ -154,7 +345,7 @@ class Enemy1(pygame.sprite.Sprite):
         self.y_speed = min(max(self.y_speed, -self.max_speed), self.max_speed)
 
         self.times_update_func_called = self.times_update_func_called + 1.0
-        self.rect.x = self.rect.x + int(self.x_speed)
+        self.rect.x = self.rect.x + self.x_speed
         self.rect.y = self.rect.y + self.y_speed
 
 
@@ -297,12 +488,13 @@ class Player(pygame.sprite.Sprite):
 
 class Bullet(pygame.sprite.Sprite):
     """ This class represents the bullet . """
-    def __init__(self, speed=3, enemy=False, image=None):
+    def __init__(self,  x_speed=0, y_speed=3, enemy=False, image=None):
         # Call the parent class (Sprite) constructor
         super().__init__()
 
         self.physical_obj = create_physical_object_dict(damage=1)
-        self.speed = speed
+        self.x_speed = x_speed
+        self.y_speed = y_speed        
         self.enemy = enemy #is an enemy of is coming from an ally
         if image:
             self.image = image
@@ -317,15 +509,17 @@ class Bullet(pygame.sprite.Sprite):
     def update(self):
         """ Move the bullet. """
         if self.enemy is True:
-            self.rect.y += self.speed
+            self.rect.y += self.y_speed
             if self.rect.y >= SCREEN_HEIGHT:
                 self.physical_obj['hit_points'] = 0 #dead
         else:
-            self.rect.y -= self.speed
-            if self.rect.y <= 10:
+            self.rect.y -= self.y_speed
+            if self.rect.y <= self.rect.height:
                 self.physical_obj['hit_points'] = 0 #dead
 
-
+        self.rect.x += self.x_speed
+        if self.rect.x <= self.rect.width or self.rect.x >= SCREEN_WIDTH:
+            self.physical_obj['hit_points'] = 0 #dead
 
 class Game(object):
     """ This class represents an instance of the game. If we need to
@@ -362,6 +556,8 @@ class Game(object):
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
 
+        self.add_whale()
+
         if pygame.mixer:
             # http://www.khinsider.com/midi/nes/guardian-legend
             pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
@@ -369,18 +565,30 @@ class Game(object):
 
     def add_enemy(self):
         """ Create an instance of an enemy. """
-        enemy = Enemy1()
+        enemy = EnemySmallSpaceship()
         enemy.rect.x = random.randint(0, SCREEN_WIDTH-enemy.rect.width)
         self.all_sprites_list.add(enemy)
         self.enemy_object_list.add(enemy)
         self.enemy_list.add(enemy)
+
+    def add_whale(self):
+        """ Create an instance of an enemy. """
+        enemy = Whale()
+        enemy.rect.x = random.randint(0, SCREEN_WIDTH-enemy.rect.width)
+        self.all_sprites_list.add(enemy)
+        self.enemy_object_list.add(enemy)
+        self.enemy_list.add(enemy)
+
 
     def spawn_enemy(self):
         """ Spawn new enemy based on time interval. """
         ticks_now = pygame.time.get_ticks()
         if ticks_now - self.last_time_spawn_enemy >= self.interval_spawn_enemy:
             self.last_time_spawn_enemy = ticks_now
-            self.add_enemy()
+            if random.random() < 0.95:
+                self.add_enemy()
+            else:
+                self.add_whale()
 
     def set_fps(self, fps):
         """ Setter fps """
@@ -414,11 +622,11 @@ class Game(object):
             if not self.game_over_music_enabled and pygame.mixer:
                 pygame.mixer.music.stop()
                 pygame.mixer.music.load(os.path.join('sounds', 'game-over.mid'))
-                pygame.mixer.music.play(-1)
+                pygame.mixer.music.play(1)
                 self.game_over_music_enabled = True
         else:
 
-            self.spawn_enemy()
+            #self.spawn_enemy()
 
             # Move all the sprites
             player_x = self.player.rect.x + self.player.rect.width//2
@@ -431,10 +639,10 @@ class Game(object):
 
             # Add new bullet
             for enemy in self.enemy_list:
-                bullet = enemy.fire()
-                if bullet is not None:
-                    self.all_sprites_list.add(bullet)
-                    self.enemy_object_list.add(bullet)
+                bullets = enemy.fire()
+                if bullets:
+                    self.all_sprites_list.add(bullets)
+                    self.enemy_object_list.add(bullets)
 
             # Check collisions
             for ally_obj in  self.player_object_list:
