@@ -98,7 +98,7 @@ class Whale(pygame.sprite.Sprite):
         """ Constructor """
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=50, damage=1,
-                                                        score_value=1000//50)
+                                                        score_value=200//50)
 
         if not Whale.images:
             #Load images
@@ -118,8 +118,7 @@ class Whale(pygame.sprite.Sprite):
         self.max_speed = 5
         self.x_speed = 0
         self.y_speed = 0
-        self.x_speed_old = 0
-        self.y_speed_old = 0
+
         self.player_x = 0
         self.player_y = 0
         self.player_x_filt = 0
@@ -131,7 +130,7 @@ class Whale(pygame.sprite.Sprite):
         self.interval_behaviour = 10000 #ms
         self.behaviour = 0
         self.last_time_fire = self.last_time
-        self.interval_fire = 4000
+        self.interval_fire = 1000
 
         self.image_iterator = itertools.cycle(Whale.images)
         self.x_circle_iterator = itertools.cycle(Whale.xs_circle)
@@ -146,7 +145,7 @@ class Whale(pygame.sprite.Sprite):
     def exponential_smoothing(self, alpha, val, old_filt_val):
         """ Exponential smoothing """
         return alpha * val + (1.0 - alpha) * old_filt_val
-        
+
     def set_player_position(self, x_pos, y_pos):
         """ Setter for player position for smarter actions"""
         self.player_x = x_pos
@@ -170,35 +169,36 @@ class Whale(pygame.sprite.Sprite):
         ticks_now = pygame.time.get_ticks()
         if ticks_now - self.last_time_fire >= self.interval_fire:
             self.last_time_fire = ticks_now
-            # Center            
+            # Center
             bullet = Bullet(enemy=True)
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
             bullets.append(bullet)
-            # Left           
+            # Left
             bullet = Bullet(enemy=True, x_speed=-3)
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
             bullet.image.fill(RED)
             bullets.append(bullet)
-            # Left           
+            # Left
             bullet = Bullet(enemy=True, x_speed=-1)
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
             bullet.image.fill(PURPLE)
             bullets.append(bullet)
-            # Right           
+            # Right
             bullet = Bullet(enemy=True, x_speed=+3)
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
             bullet.image.fill(RED)
             bullets.append(bullet)
-            # Right          
+            # Right
             bullet = Bullet(enemy=True, x_speed=+1)
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
             bullet.image.fill(PURPLE)
             bullets.append(bullet)
+
 
         return bullets
 
@@ -229,41 +229,49 @@ class Whale(pygame.sprite.Sprite):
         """ Update whale """
 
         self.update_animation()
-        x_rect_old = self.rect.x
-        y_rect_old = self.rect.y
-        self.x_speed_old = self.x_speed
-        self.y_speed_old = self.y_speed
 
         enemy_center_x = self.rect.x + self.rect.width//2
         enemy_center_y = self.rect.y + self.rect.height//2
-        error_x = (self.player_x_filt - enemy_center_x)
-
-        self.x_speed = self.picontrol_x.control(error_x)
-        self.x_speed = min(max(self.x_speed, -self.max_speed), self.max_speed)
-
-
-        error_y = self.player_y_filt - enemy_center_y
-
-        self.y_speed = self.picontrol_y.control(error_y)
-        self.y_speed = min(max(self.y_speed, -self.max_speed), self.max_speed)
 
         x_circle = next(self.x_circle_iterator)
         y_circle = next(self.y_circle_iterator)
 
         if self.behaviour == 1:
-            self.alpha_exp_smoothing = 3.0/300.0
-            x_pos = self.rect.x + self.x_speed
-            y_pos = self.rect.y + self.y_speed
-        else:
-            self.alpha_exp_smoothing = 3.0/800.0
-            x_pos = self.player_x_filt + x_circle
-            y_pos = self.player_y_filt - y_circle - self.rect.height
 
+            self.alpha_exp_smoothing = 3.0/300.0
+
+            error_x = (self.player_x_filt - enemy_center_x)
+            self.x_speed = self.picontrol_x.control(error_x)
+            self.x_speed = min(max(self.x_speed, -self.max_speed), self.max_speed)
+
+            y_offset = 200
+            error_y = self.player_y_filt - enemy_center_y - y_offset
+            self.y_speed = self.picontrol_y.control(error_y)
+            self.y_speed = min(max(self.y_speed, -self.max_speed), self.max_speed)
+
+        else:
+
+            self.alpha_exp_smoothing = 3.0/800.0
+
+            x_setpoint = self.player_x_filt + x_circle
+            y_setpoint = self.player_y_filt - y_circle - self.rect.height
+
+            error_x = (x_setpoint - enemy_center_x)
+            self.x_speed = self.picontrol_x.control(error_x)
+            self.x_speed = min(max(self.x_speed, -self.max_speed), self.max_speed)
+
+            error_y = y_setpoint - enemy_center_y
+            self.y_speed = self.picontrol_y.control(error_y)
+            self.y_speed = min(max(self.y_speed, -self.max_speed), self.max_speed)
+
+        x_pos = self.rect.x + self.x_speed
+        y_pos = self.rect.y + self.y_speed
 
         self.rect = self.image.get_rect()
-        alpha = 3.0/20.0        
-        self.rect.x = alpha * x_pos + (1.0 - alpha) * x_rect_old
-        self.rect.y = alpha * y_pos + (1.0 - alpha) * y_rect_old
+
+        self.rect.x = x_pos
+        self.rect.y = y_pos
+
 
         #Check boundaries of the spaceship
         if self.rect.y > SCREEN_HEIGHT - self.rect.height:
@@ -278,16 +286,25 @@ class Whale(pygame.sprite.Sprite):
 class EnemySmallSpaceship(pygame.sprite.Sprite):
     """ This class represents a specific enemy. Spaceship """
 
-    image = None
+    image_center = None
+    image_left = None
+    image_right = None
 
     def __init__(self):
         """ Constructor """
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=1, damage=1, score_value=2)
-        if EnemySmallSpaceship.image is None:
+        if EnemySmallSpaceship.image_center is None:
             sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'enemies.png'))
-            EnemySmallSpaceship.image = sprite_sheet.get_image(35, 95, 16, 14)
-        self.rect = EnemySmallSpaceship.image.get_rect()
+            EnemySmallSpaceship.image_center = sprite_sheet.get_image(35, 95, 16, 14)
+            EnemySmallSpaceship.image_right =  sprite_sheet.get_image(58, 95,
+                                                                      13, 16)
+            EnemySmallSpaceship.image_left = pygame.transform.flip(
+                                             EnemySmallSpaceship.image_right,
+                                             True, False)
+
+        self.image = EnemySmallSpaceship.image_center
+        self.rect = self.image.get_rect()
         self.x_speed = 0
         self.y_speed = 0
         self.max_speed = 10.0
@@ -345,9 +362,22 @@ class EnemySmallSpaceship(pygame.sprite.Sprite):
         self.y_speed = min(max(self.y_speed, -self.max_speed), self.max_speed)
 
         self.times_update_func_called = self.times_update_func_called + 1.0
-        self.rect.x = self.rect.x + self.x_speed
-        self.rect.y = self.rect.y + self.y_speed
 
+        x_new = self.rect.x + self.x_speed
+        y_new = self.rect.y + self.y_speed
+
+        x_speed_int = int(self.x_speed)
+
+        if x_speed_int > 1:
+            self.image = EnemySmallSpaceship.image_right
+        elif x_speed_int < -1:
+            self.image = EnemySmallSpaceship.image_left
+        else:
+            self.image = EnemySmallSpaceship.image_center
+
+        self.rect = self.image.get_rect()
+        self.rect.x = x_new
+        self.rect.y = y_new
 
         #Check boundaries of the spaceship
         if self.rect.y < 0:
@@ -368,15 +398,18 @@ class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=3, damage=1)
-        self.sprite_sheet = SpriteSheet(os.path.join('bitmaps',
+        sprite_sheet = SpriteSheet(os.path.join('bitmaps',
                                                      'theGuardian.png'))
 
-        self.spaceship_normal = self.sprite_sheet.get_image(7, 87, 23, 30)
-        self.spaceship_power1 = self.sprite_sheet.get_image(65, 87, 23, 30)
-        self.spaceship_power2 = self.sprite_sheet.get_image(95, 87, 23, 30)
-        self.spaceship_left = self.sprite_sheet.get_image(155, 87, 23, 30)
+        self.spaceship_normal = sprite_sheet.get_image(7, 87, 23, 30)
+        self.spaceship_power1 = sprite_sheet.get_image(65, 87, 23, 30)
+        self.spaceship_power2 = sprite_sheet.get_image(95, 87, 23, 30)
+        self.spaceship_left = sprite_sheet.get_image(155, 87, 23, 30)
         self.spaceship_right = pygame.transform.flip(self.spaceship_left,
                                                      True, False)
+        self.iterator_spaceship_center = itertools.cycle([self.spaceship_normal,
+                                                          self.spaceship_power1,
+                                                          self.spaceship_power2])
 
         bullet_sprite_sheet = SpriteSheet(os.path.join('bitmaps',
                                                        'bullet.png'))
@@ -466,24 +499,10 @@ class Player(pygame.sprite.Sprite):
         #change the image accordingly
         if x_speed < 0 and self.image != self.spaceship_left:
             self.image = self.spaceship_left
-            #self.rect = self.image.get_rect()
         elif x_speed > 0 and self.image != self.spaceship_right:
             self.image = self.spaceship_right
-            #self.rect = self.image.get_rect()
         elif x_speed == 0:
-            if self.image == self.spaceship_normal:
-                self.image = self.spaceship_power1
-            elif self.image == self.spaceship_power1:
-                self.image = self.spaceship_power2
-            elif self.image == self.spaceship_power2:
-                self.image = self.spaceship_power1
-            else:
-                self.image = self.spaceship_normal
-            #self.rect = self.image.get_rect()
-
-       #check for shooting
-
-        #check for collisions
+            self.image = next(self.iterator_spaceship_center)
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -494,7 +513,7 @@ class Bullet(pygame.sprite.Sprite):
 
         self.physical_obj = create_physical_object_dict(damage=1)
         self.x_speed = x_speed
-        self.y_speed = y_speed        
+        self.y_speed = y_speed
         self.enemy = enemy #is an enemy of is coming from an ally
         if image:
             self.image = image
@@ -556,8 +575,6 @@ class Game(object):
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
 
-        self.add_whale()
-
         if pygame.mixer:
             # http://www.khinsider.com/midi/nes/guardian-legend
             pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
@@ -585,10 +602,16 @@ class Game(object):
         ticks_now = pygame.time.get_ticks()
         if ticks_now - self.last_time_spawn_enemy >= self.interval_spawn_enemy:
             self.last_time_spawn_enemy = ticks_now
-            if random.random() < 0.95:
+            # The boss can be spawn only when score is high
+            if self.player.score < 50:
+                self.add_enemy()
+            elif random.random() < 0.95:
                 self.add_enemy()
             else:
                 self.add_whale()
+                # Slow down spawn of monster for some time
+                slow_down_time = 60*1000 # 1 min
+                self.last_time_spawn_enemy = ticks_now + slow_down_time
 
     def set_fps(self, fps):
         """ Setter fps """
@@ -626,7 +649,7 @@ class Game(object):
                 self.game_over_music_enabled = True
         else:
 
-            #self.spawn_enemy()
+            self.spawn_enemy()
 
             # Move all the sprites
             player_x = self.player.rect.x + self.player.rect.width//2
