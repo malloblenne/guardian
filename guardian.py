@@ -16,6 +16,9 @@ import itertools
 
 import pygame
 
+
+
+
 #--- Global constants ---
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -25,6 +28,16 @@ PURPLE = (128, 0, 128)
 
 SCREEN_WIDTH = 700
 SCREEN_HEIGHT = 500
+
+#--- Logger ---
+
+import sys
+LOGGING_LEVEL = logging.DEBUG
+logger = logging.getLogger(__name__)
+logger.setLevel(LOGGING_LEVEL)
+log_hdlr = logging.StreamHandler(sys.stdout)
+log_hdlr.setLevel(logging.DEBUG)
+logger.addHandler(log_hdlr)
 
 
 
@@ -169,34 +182,41 @@ class Whale(pygame.sprite.Sprite):
         ticks_now = pygame.time.get_ticks()
         if ticks_now - self.last_time_fire >= self.interval_fire:
             self.last_time_fire = ticks_now
+
+            def draw_circle_surface(radius, center, color, width):
+                bullet_surf = pygame.Surface([2 * radius, 2 * radius])
+                pygame.draw.circle(bullet_surf, color, center, radius, width)
+                return bullet_surf
+            
+            def draw_circle(color, radius, width):
+                center = (radius, radius)     
+                return draw_circle_surface(radius, center, color, width)
+
             # Center
-            bullet = Bullet(enemy=True)
+            RED_EYE = (219, 43, 0)
+            bullet = Bullet(enemy=True, image=draw_circle(RED_EYE, 8, 4))
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
             bullets.append(bullet)
             # Left
-            bullet = Bullet(enemy=True, x_speed=-3)
+            bullet = Bullet(enemy=True, x_speed=-3, image=draw_circle(RED_EYE, 4, 0))
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
-            bullet.image.fill(RED)
             bullets.append(bullet)
             # Left
-            bullet = Bullet(enemy=True, x_speed=-1)
+            bullet = Bullet(enemy=True, x_speed=-1, image=draw_circle(RED_EYE, 4, 0))
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
-            bullet.image.fill(PURPLE)
             bullets.append(bullet)
             # Right
-            bullet = Bullet(enemy=True, x_speed=+3)
+            bullet = Bullet(enemy=True, x_speed=+3, image=draw_circle(RED_EYE, 4, 0))
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
-            bullet.image.fill(RED)
             bullets.append(bullet)
             # Right
-            bullet = Bullet(enemy=True, x_speed=+1)
+            bullet = Bullet(enemy=True, x_speed=+1, image=draw_circle(RED_EYE, 4, 0))
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
-            bullet.image.fill(PURPLE)
             bullets.append(bullet)
 
 
@@ -564,6 +584,9 @@ class Game(object):
         self.enemy_object_list = pygame.sprite.Group()
         #it contains only ships and monsters
         self.enemy_list = pygame.sprite.Group()
+        
+        self.last_time_enemy_killed = 0
+        self.milliseconds_per_kill = 10000
 
 
 
@@ -574,6 +597,9 @@ class Game(object):
 
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
+        
+        # Test boss
+        #self.add_whale()
 
         if pygame.mixer:
             # http://www.khinsider.com/midi/nes/guardian-legend
@@ -683,17 +709,29 @@ class Game(object):
 
             # Check for dead objects to be removed
             dead_list = []
+            num_killed_enemy_now = 0
 
             for sprite in self.all_sprites_list:
                 if sprite.physical_obj['hit_points'] <= 0:
-                    logging.debug(sprite, ' will be removed')
+                    logger.debug(str(sprite) + '  will be removed')
                     dead_list.append(sprite)
+                    num_killed_enemy_now+= 1
+                    
             for sprite in dead_list:
                 self.all_sprites_list.remove(sprite)
                 self.player_object_list.remove(sprite)
                 self.enemy_object_list.remove(sprite)
                 self.enemy_list.remove(sprite)
 
+            if num_killed_enemy_now > 0:
+                ticks_now = pygame.time.get_ticks()
+                interval_kills = (ticks_now - self.last_time_enemy_killed) / num_killed_enemy_now
+                self.last_time_enemy_killed = ticks_now                
+                alpha = 0.90
+                self.milliseconds_per_kill = alpha * self.milliseconds_per_kill + (1.0 - alpha) * interval_kills 
+                logger.debug('%10.2f ms/kills %10.2f kills/s',
+                             self.milliseconds_per_kill,
+                             1000.0/(self.milliseconds_per_kill))
 
     def display_frame(self, screen):
         """ Display everything to the screen for the game. """
