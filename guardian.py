@@ -29,14 +29,18 @@ PURPLE = (128, 0, 128)
 SCREEN_WIDTH = 700
 SCREEN_HEIGHT = 500
 
+FPS = 60
+
+display_flags = pygame.HWSURFACE|pygame.DOUBLEBUF|pygame.RESIZABLE
+
 #--- Logger ---
 
 import sys
-LOGGING_LEVEL = logging.DEBUG
+LOGGING_LEVEL = logging.INFO
 logger = logging.getLogger(__name__)
 logger.setLevel(LOGGING_LEVEL)
 log_hdlr = logging.StreamHandler(sys.stdout)
-log_hdlr.setLevel(logging.DEBUG)
+log_hdlr.setLevel(LOGGING_LEVEL)
 logger.addHandler(log_hdlr)
 
 
@@ -44,11 +48,12 @@ logger.addHandler(log_hdlr)
 class SpriteSheet(object):
     """ Class used to grab images out of a sprite sheet. """
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, color_key=(38, 0, 0)):
         """ Constructor. Pass in the file name of the sprite sheet. """
 
         # Load the sprite sheet.
         self.sprite_sheet = pygame.image.load(file_name).convert()
+        self.color_key = color_key
 
     def get_image(self, x_pos, y_pos, width, height):
         """ Grab a single image out of a larger spritesheet
@@ -63,7 +68,7 @@ class SpriteSheet(object):
 
         # Assuming black works as the transparent color
         #image.set_colorkey(BLACK)
-        image.set_colorkey((38, 0, 0))
+        image.set_colorkey(self.color_key)
         # Return the image
         return image
 
@@ -315,7 +320,7 @@ class EnemySmallSpaceship(pygame.sprite.Sprite):
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=1, damage=1, score_value=2)
         if EnemySmallSpaceship.image_center is None:
-            sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'enemies.png'))
+            sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'enemies.png'), color_key=(3, 0 ,38))
             EnemySmallSpaceship.image_center = sprite_sheet.get_image(35, 95, 16, 14)
             EnemySmallSpaceship.image_right =  sprite_sheet.get_image(58, 95,
                                                                       13, 16)
@@ -574,9 +579,10 @@ class Game(object):
     def __init__(self):
         self.score = 0
         self.game_over = False
+        self.pause = False
         self.game_over_music_enabled = False
         self.fps = 0.0
-        self.fps_font = pygame.font.SysFont("serif", 25)
+        self.font = pygame.font.Font(os.path.join('fonts','PressStart2P.ttf'), 12)
 
         self.all_sprites_list = pygame.sprite.Group()
         self.player_object_list = pygame.sprite.Group()
@@ -586,7 +592,7 @@ class Game(object):
         self.enemy_list = pygame.sprite.Group()
         
         self.last_time_enemy_killed = 0
-        self.milliseconds_per_kill = 10000
+        self.milliseconds_per_kill = 1500
 
 
 
@@ -626,7 +632,7 @@ class Game(object):
     def spawn_enemy(self):
         """ Spawn new enemy based on time interval. """
         ticks_now = pygame.time.get_ticks()
-        if ticks_now - self.last_time_spawn_enemy >= self.interval_spawn_enemy:
+        if ticks_now - self.last_time_spawn_enemy >= (self.milliseconds_per_kill * 0.80):#self.interval_spawn_enemy:
             self.last_time_spawn_enemy = ticks_now
             # The boss can be spawn only when score is high
             if self.player.score < 50:
@@ -643,22 +649,36 @@ class Game(object):
         """ Setter fps """
         self.fps = fps
 
-    def process_events(self):
+    def process_events(self, screen):
         """ Process all of the events. Return a "True" if we need
             to close the window. """
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return True
-            if (event.type == pygame.MOUSEBUTTONDOWN or
-               (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN)):
-                if self.game_over:
-                    self.__init__()
-            elif not self.game_over:
+            elif event.type==pygame.VIDEORESIZE:
+                size_screen = event.dict['size']
+                screen=pygame.display.set_mode(size_screen, display_flags)
+                return False
+            if (self.game_over and (event.type == pygame.MOUSEBUTTONDOWN or
+               (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN))):
+                self.__init__()
+                return False
+            elif (event.type == pygame.KEYDOWN and event.key == pygame.K_p):
+                self.pause = not self.pause
+                if self.pause:
+                   pygame.mixer.music.set_volume(0.0)
+                   pygame.mixer.music.pause() # midi does not stop
+                else:
+                   pygame.mixer.music.set_volume(1.0)
+                   pygame.mixer.music.unpause()					  
+
+            if not self.game_over and not self.pause:
                 bullet = self.player.process_event(event)
                 if bullet is not None:
-                    self.all_sprites_list.add(bullet)
-                    self.player_object_list.add(bullet)
+                   self.all_sprites_list.add(bullet)
+                   self.player_object_list.add(bullet)
+        
         return False
 
     def run_logic(self):
@@ -673,6 +693,9 @@ class Game(object):
                 pygame.mixer.music.load(os.path.join('sounds', 'game-over.mid'))
                 pygame.mixer.music.play(1)
                 self.game_over_music_enabled = True
+        
+        elif self.pause:
+             pass # Do nothing for now	
         else:
 
             self.spawn_enemy()
@@ -715,7 +738,8 @@ class Game(object):
                 if sprite.physical_obj['hit_points'] <= 0:
                     logger.debug(str(sprite) + '  will be removed')
                     dead_list.append(sprite)
-                    num_killed_enemy_now+= 1
+                    if not isinstance(sprite, Bullet):
+                        num_killed_enemy_now+= 1
                     
             for sprite in dead_list:
                 self.all_sprites_list.remove(sprite)
@@ -733,40 +757,44 @@ class Game(object):
                              self.milliseconds_per_kill,
                              1000.0/(self.milliseconds_per_kill))
 
-    def display_frame(self, screen):
+    def display_frame(self, surface_fixed_size, true_screen):
         """ Display everything to the screen for the game. """
-        screen.fill(BLACK)
+        surface_fixed_size.fill(BLACK)
 
         # Score
-        text_score = self.fps_font.render("Score {0}".format(self.player.score)
+        text_score = self.font.render("Score {0}".format(self.player.score)
                                           , True, WHITE)
-        screen.blit(text_score, [5, 40])
+        surface_fixed_size.blit(text_score, [5, 40])
 
         if self.game_over:
             #font = pygame.font.Font("Serif", 25)
-            font = pygame.font.SysFont("serif", 25)
-            text = font.render(
+            #font = pygame.font.SysFont("serif", 25)
+            text = self.font.render(
                 "Game Over, click the mouse or press enter to restart",
                 True, WHITE)
             center_x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
             center_y = (SCREEN_HEIGHT // 2) - (text.get_height() // 2)
-            screen.blit(text, [center_x, center_y])
+            surface_fixed_size.blit(text, [center_x, center_y])
 
         if not self.game_over:
-            self.all_sprites_list.draw(screen)
+            self.all_sprites_list.draw(surface_fixed_size)
 
             #Display fps in bottom left side
-            text_fps = self.fps_font.render("FPS {0}".format(round(self.fps, 1)),
+            text_fps = self.font.render("FPS {0}".format(round(self.fps, 1)),
                                             True, WHITE)
-            screen.blit(text_fps, [SCREEN_WIDTH -95, SCREEN_HEIGHT -40])
+            surface_fixed_size.blit(text_fps, [SCREEN_WIDTH -95, SCREEN_HEIGHT -40])
 
             # Hit points
-            text_hp = self.fps_font.render("HP {0}".format(
+            text_hp = self.font.render("HP {0}".format(
                 self.player.physical_obj['hit_points']), True, WHITE)
-            screen.blit(text_hp, [SCREEN_WIDTH -95, 40])
+            surface_fixed_size.blit(text_hp, [SCREEN_WIDTH -95, 40])
+			
+			# Kill / s
+            text_kill_s = self.font.render("Kill/s {0:.2f}".format(
+                1000.0/(self.milliseconds_per_kill)), True, WHITE)
+            surface_fixed_size.blit(text_kill_s, [0, SCREEN_HEIGHT -40])			
 
-
-
+        true_screen.blit(pygame.transform.scale(surface_fixed_size, true_screen.get_size()), (0, 0))
         pygame.display.flip()
 
 
@@ -778,11 +806,19 @@ def main():
     pygame.init()
 
     size = [SCREEN_WIDTH, SCREEN_HEIGHT]
-    screen = pygame.display.set_mode(size)
+    screen = pygame.display.set_mode(size, display_flags)
 
-    pygame.display.set_caption("My Game")
+    # Everything will be drawn on a fixed surface and then scaled
+    surface_fixed_size = screen.copy()
+
+    pygame.display.set_caption("Guardian")
     pygame.mouse.set_visible(False)
 
+	# Set Icon of the window
+    sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'bosses.png'))
+    icon = sprite_sheet.get_image(99, 312, 32, 32)
+    pygame.display.set_icon(icon)
+	
     # Create our objects and set the data
     done = False
     clock = pygame.time.Clock()
@@ -794,7 +830,7 @@ def main():
     while not done:
 
         # Process events (keystrokes, mouse clicks, etc)
-        done = game.process_events()
+        done = game.process_events(screen)
 
         # Update object positions, check for collisions
         game.run_logic()
@@ -803,10 +839,10 @@ def main():
         game.set_fps(clock.get_fps())
 
         # Draw the current frame
-        game.display_frame(screen)
+        game.display_frame(surface_fixed_size, screen)
 
         # Pause for the next frame
-        clock.tick(60)
+        clock.tick(FPS)
 
     # Close window and exit
     pygame.quit()
