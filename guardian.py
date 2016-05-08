@@ -15,7 +15,8 @@ import itertools
 
 
 import pygame
-
+from pytmx.util_pygame import load_pygame
+import pyscroll
 
 
 
@@ -26,8 +27,8 @@ GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 PURPLE = (128, 0, 128)
 
-SCREEN_WIDTH = 700
-SCREEN_HEIGHT = 500
+SCREEN_WIDTH = 256
+SCREEN_HEIGHT = 200
 
 FPS = 60
 
@@ -611,6 +612,16 @@ class Game(object):
             # http://www.khinsider.com/midi/nes/guardian-legend
             pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
             pygame.mixer.music.play(-1)
+			
+        # Load TMX data
+        tmx_data = load_pygame(os.path.join('maps', 'map.tmx'))
+
+        # Make data source for the map
+        map_data = pyscroll.TiledMapData(tmx_data)
+
+        # Make layer
+        self.map_layer = pyscroll.BufferedRenderer(map_data, (SCREEN_HEIGHT, SCREEN_WIDTH))
+        self.center_map = [0, self.map_layer.map_rect.height]
 
     def add_enemy(self):
         """ Create an instance of an enemy. """
@@ -664,6 +675,14 @@ class Game(object):
                (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN))):
                 self.__init__()
                 return False
+            elif (event.type == pygame.KEYDOWN and event.key == pygame.K_1):
+                resize_event = pygame.event.Event(pygame.VIDEORESIZE, {'size': [SCREEN_HEIGHT, SCREEN_WIDTH]})
+                pygame.event.post(resize_event)
+                return False
+            elif (event.type == pygame.KEYDOWN and event.key == pygame.K_2):
+                resize_event = pygame.event.Event(pygame.VIDEORESIZE, {'size': [SCREEN_HEIGHT * 2, SCREEN_WIDTH * 2]})
+                pygame.event.post(resize_event)
+                return False
             elif (event.type == pygame.KEYDOWN and event.key == pygame.K_p):
                 self.pause = not self.pause
                 if self.pause:
@@ -697,6 +716,14 @@ class Game(object):
         elif self.pause:
              pass # Do nothing for now	
         else:
+
+
+            self.center_map[1] = self.center_map[1] - 3
+
+            if self.center_map[1] < 0:
+                self.center_map[1] = self.map_layer.map_rect.height
+
+            self.map_layer.center(self.center_map)
 
             self.spawn_enemy()
 
@@ -777,22 +804,25 @@ class Game(object):
             surface_fixed_size.blit(text, [center_x, center_y])
 
         if not self.game_over:
+
+            self.map_layer.draw(surface_fixed_size, surface_fixed_size.get_rect())
+
             self.all_sprites_list.draw(surface_fixed_size)
 
             #Display fps in bottom left side
             text_fps = self.font.render("FPS {0}".format(round(self.fps, 1)),
                                             True, WHITE)
-            surface_fixed_size.blit(text_fps, [SCREEN_WIDTH -95, SCREEN_HEIGHT -40])
+            surface_fixed_size.blit(text_fps, [SCREEN_WIDTH -95, SCREEN_HEIGHT -20])
 
             # Hit points
             text_hp = self.font.render("HP {0}".format(
                 self.player.physical_obj['hit_points']), True, WHITE)
-            surface_fixed_size.blit(text_hp, [SCREEN_WIDTH -95, 40])
+            surface_fixed_size.blit(text_hp, [SCREEN_WIDTH -60, 20])
 			
 			# Kill / s
             text_kill_s = self.font.render("Kill/s {0:.2f}".format(
                 1000.0/(self.milliseconds_per_kill)), True, WHITE)
-            surface_fixed_size.blit(text_kill_s, [0, SCREEN_HEIGHT -40])			
+            surface_fixed_size.blit(text_kill_s, [0, SCREEN_HEIGHT -20])			
 
         true_screen.blit(pygame.transform.scale(surface_fixed_size, true_screen.get_size()), (0, 0))
         pygame.display.flip()

@@ -15,22 +15,31 @@ But I want to keep the game enjoyable and fun.
 
 * [Python 3](https://www.python.org/)
 * [pygame](http://www.pygame.org)
+* [pytmx](https://github.com/bitcraft/PyTMX)
+* [pyscroll](https://github.com/bitcraft/pyscroll)
 
 ### Windows
  
  * You can download python 3 from the [official website](https://www.python.org/). For developer instead I suggest to install [Anaconda Python Distribution](https://www.continuum.io/downloads)
  * You need to download the binary version of [pygame library](http://www.lfd.uci.edu/~gohlke/pythonlibs/#pygame)
  * In order to install the library call the command: `pip install library.whl`
+ * To install pytmx called the command:  `pip install pytmx`
+ * To install pyscroll called the command:  `pip install pyscroll`
  
 ### GNU Linux
  
  * Install python 3 using your favourite package manager
  * Install pygame
+ * Install pytmx
+ * Install pyscroll
  
 ## How to play
  
  The player spaceship can be controlled using the arrow keys and firing with the spacebar.
- To restart the game after a game over, press the return key
+ To restart the game after a game over, press the return key.
+ To pause and unpause the game press the key p.
+ To zoom x2 press the key 2. For the original NES zoom, press 1.
+
 
 ## Copyright
 
