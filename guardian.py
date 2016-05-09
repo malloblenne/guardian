@@ -28,7 +28,7 @@ RED = (255, 0, 0)
 PURPLE = (128, 0, 128)
 
 SCREEN_WIDTH = 256
-SCREEN_HEIGHT = 200
+SCREEN_HEIGHT = 220
 
 FPS = 60
 
@@ -533,6 +533,9 @@ class Player(pygame.sprite.Sprite):
 
 class Bullet(pygame.sprite.Sprite):
     """ This class represents the bullet . """
+
+    image_default = None
+
     def __init__(self,  x_speed=0, y_speed=3, enemy=False, image=None):
         # Call the parent class (Sprite) constructor
         super().__init__()
@@ -541,11 +544,14 @@ class Bullet(pygame.sprite.Sprite):
         self.x_speed = x_speed
         self.y_speed = y_speed
         self.enemy = enemy #is an enemy of is coming from an ally
+        if not Bullet.image_default:
+            Bullet.image_default = pygame.Surface([4, 10])
+            Bullet.image_default.fill(WHITE)
+
         if image:
             self.image = image
         else:
-            self.image = pygame.Surface([4, 10])
-            self.image.fill(WHITE)
+            self.image = Bullet.image_default
 
         self.rect = self.image.get_rect()
 
@@ -583,7 +589,7 @@ class Game(object):
         self.pause = False
         self.game_over_music_enabled = False
         self.fps = 0.0
-        self.font = pygame.font.Font(os.path.join('fonts','PressStart2P.ttf'), 12)
+        self.font = pygame.font.Font(os.path.join('fonts','PressStart2P.ttf'), 8)
 
         self.all_sprites_list = pygame.sprite.Group()
         self.player_object_list = pygame.sprite.Group()
@@ -620,8 +626,8 @@ class Game(object):
         map_data = pyscroll.TiledMapData(tmx_data)
 
         # Make layer
-        self.map_layer = pyscroll.BufferedRenderer(map_data, (SCREEN_HEIGHT, SCREEN_WIDTH))
-        self.center_map = [0, self.map_layer.map_rect.height]
+        self.map_layer = pyscroll.BufferedRenderer(map_data, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        self.center_map = [self.map_layer.map_rect.width//2, self.map_layer.map_rect.height - SCREEN_HEIGHT//2]
 
     def add_enemy(self):
         """ Create an instance of an enemy. """
@@ -676,11 +682,11 @@ class Game(object):
                 self.__init__()
                 return False
             elif (event.type == pygame.KEYDOWN and event.key == pygame.K_1):
-                resize_event = pygame.event.Event(pygame.VIDEORESIZE, {'size': [SCREEN_HEIGHT, SCREEN_WIDTH]})
+                resize_event = pygame.event.Event(pygame.VIDEORESIZE, {'size': [SCREEN_WIDTH , SCREEN_HEIGHT]})
                 pygame.event.post(resize_event)
                 return False
             elif (event.type == pygame.KEYDOWN and event.key == pygame.K_2):
-                resize_event = pygame.event.Event(pygame.VIDEORESIZE, {'size': [SCREEN_HEIGHT * 2, SCREEN_WIDTH * 2]})
+                resize_event = pygame.event.Event(pygame.VIDEORESIZE, {'size': [SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2]})
                 pygame.event.post(resize_event)
                 return False
             elif (event.type == pygame.KEYDOWN and event.key == pygame.K_p):
@@ -721,15 +727,15 @@ class Game(object):
             self.center_map[1] = self.center_map[1] - 3
 
             if self.center_map[1] < 0:
-                self.center_map[1] = self.map_layer.map_rect.height
+                self.center_map[1] = self.map_layer.map_rect.height - SCREEN_HEIGHT // 2 -3
 
             self.map_layer.center(self.center_map)
 
             self.spawn_enemy()
 
             # Move all the sprites
-            player_x = self.player.rect.x + self.player.rect.width//2
-            player_y = self.player.rect.y + self.player.rect.height//2
+            player_x = self.player.rect.x + self.player.rect.width // 2
+            player_y = self.player.rect.y + self.player.rect.height // 2
 
             for enemy in self.enemy_list:
                 enemy.set_player_position(player_x, player_y)
@@ -794,14 +800,13 @@ class Game(object):
         surface_fixed_size.blit(text_score, [5, 40])
 
         if self.game_over:
-            #font = pygame.font.Font("Serif", 25)
-            #font = pygame.font.SysFont("serif", 25)
-            text = self.font.render(
-                "Game Over, click the mouse or press enter to restart",
-                True, WHITE)
-            center_x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
-            center_y = (SCREEN_HEIGHT // 2) - (text.get_height() // 2)
-            surface_fixed_size.blit(text, [center_x, center_y])
+            offset_y = 14
+            str_list = ['Game Over, click the mouse', 'or press enter to restart']
+            for idx, str_display in enumerate(str_list):
+                text = self.font.render( str_display, True, WHITE)
+                center_x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
+                center_y = (SCREEN_HEIGHT // 2) - (text.get_height() // 2)
+                surface_fixed_size.blit(text, [center_x, center_y + idx * offset_y])
 
         if not self.game_over:
 
