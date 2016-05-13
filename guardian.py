@@ -12,6 +12,7 @@ import math
 import random
 import os
 import itertools
+import sys
 
 
 import pygame
@@ -32,11 +33,10 @@ SCREEN_HEIGHT = 220
 
 FPS = 60
 
-display_flags = pygame.HWSURFACE|pygame.DOUBLEBUF|pygame.RESIZABLE
+DISPLAY_FLAGS = pygame.HWSURFACE|pygame.DOUBLEBUF|pygame.RESIZABLE
 
 #--- Logger ---
 
-import sys
 LOGGING_LEVEL = logging.INFO
 logger = logging.getLogger(__name__)
 logger.setLevel(LOGGING_LEVEL)
@@ -92,6 +92,11 @@ class PIController(object):
         self.cum_sum = max(min(self.cum_sum, self.anti_windup),
                            -self.anti_windup)
         return control_value
+
+
+def exponential_smoothing(alpha, val, old_filt_val):
+    """ Exponential smoothing """
+    return alpha * val + (1.0 - alpha) * old_filt_val
 
 
 def create_physical_object_dict(score_value=0, hit_points=1,
@@ -160,11 +165,6 @@ class Whale(pygame.sprite.Sprite):
         # alpha of exponential smoothing is 3/num_it for 95% constant sig
         self.alpha_exp_smoothing = 3.0/800
 
-
-    def exponential_smoothing(self, alpha, val, old_filt_val):
-        """ Exponential smoothing """
-        return alpha * val + (1.0 - alpha) * old_filt_val
-
     def set_player_position(self, x_pos, y_pos):
         """ Setter for player position for smarter actions"""
         self.player_x = x_pos
@@ -190,12 +190,14 @@ class Whale(pygame.sprite.Sprite):
             self.last_time_fire = ticks_now
 
             def draw_circle_surface(radius, center, color, width):
+                """ Create a surface with a circle in the middle"""
                 bullet_surf = pygame.Surface([2 * radius, 2 * radius])
                 pygame.draw.circle(bullet_surf, color, center, radius, width)
                 return bullet_surf
-            
+
             def draw_circle(color, radius, width):
-                center = (radius, radius)     
+                """ Create a surface with a circle in the middle. Shortcut"""
+                center = (radius, radius)
                 return draw_circle_surface(radius, center, color, width)
 
             # Center
@@ -239,14 +241,14 @@ class Whale(pygame.sprite.Sprite):
             self.image = next(self.image_iterator)
         if ticks_now - self.last_time_change_behaviour >= self.interval_behaviour:
             self.last_time_change_behaviour = ticks_now
-            self.behaviour = (self.behaviour + 1 ) % 2
+            self.behaviour = (self.behaviour + 1) % 2
 
     def circular_motion(self):
         """ Circular motion """
         r = 130#SCREEN_WIDTH/3.0
         num_steps = 100
         step = math.pi/num_steps
-        angles = [x*step  for x in range(0,num_steps)]#range(0,math.pi,step)
+        angles = [x*step  for x in range(0, num_steps)]#range(0,math.pi,step)
         x_val = [r*cos_val for cos_val in [math.cos(angle) for angle in angles]]
         y_val = [r*sin_val for sin_val in [math.sin(angle) for angle in angles]]
         return x_val, y_val
@@ -319,12 +321,17 @@ class EnemySmallSpaceship(pygame.sprite.Sprite):
     def __init__(self):
         """ Constructor """
         super().__init__()
-        self.physical_obj = create_physical_object_dict(hit_points=1, damage=1, score_value=2)
+        self.physical_obj = create_physical_object_dict(hit_points=1,
+                                                        damage=1,
+                                                        score_value=2)
+
         if EnemySmallSpaceship.image_center is None:
-            sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'enemies.png'), color_key=(3, 0 ,38))
-            EnemySmallSpaceship.image_center = sprite_sheet.get_image(35, 95, 16, 14)
-            EnemySmallSpaceship.image_right =  sprite_sheet.get_image(58, 95,
-                                                                      13, 16)
+            sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'enemies.png'),
+                                       color_key=(3, 0, 38))
+            EnemySmallSpaceship.image_center = sprite_sheet.get_image(35, 95,
+                                                                      16, 14)
+            EnemySmallSpaceship.image_right = sprite_sheet.get_image(58, 95,
+                                                                     13, 16)
             EnemySmallSpaceship.image_left = pygame.transform.flip(
                                              EnemySmallSpaceship.image_right,
                                              True, False)
@@ -425,7 +432,7 @@ class Player(pygame.sprite.Sprite):
         super().__init__()
         self.physical_obj = create_physical_object_dict(hit_points=3, damage=1)
         sprite_sheet = SpriteSheet(os.path.join('bitmaps',
-                                                     'theGuardian.png'))
+                                                'theGuardian.png'))
 
         self.spaceship_normal = sprite_sheet.get_image(7, 87, 23, 30)
         self.spaceship_power1 = sprite_sheet.get_image(65, 87, 23, 30)
@@ -436,6 +443,21 @@ class Player(pygame.sprite.Sprite):
         self.iterator_spaceship_center = itertools.cycle([self.spaceship_normal,
                                                           self.spaceship_power1,
                                                           self.spaceship_power2])
+
+        reverse_spaceship = sprite_sheet.get_image(391, 46, 25, 28) #49
+        reverse_spaceship_tilt1 = sprite_sheet.get_image(366, 46, 18, 28)
+        reverse_spaceship_tilt2 = sprite_sheet.get_image(345, 47, 14, 27)
+        reverse_spaceship_tilt1_flip = pygame.transform.flip(reverse_spaceship_tilt1,
+                                                     True, False)
+        reverse_spaceship_tilt2_flip = pygame.transform.flip(reverse_spaceship_tilt2,
+                                                     True, False)
+
+        self.iterator_spaceship_reverse = itertools.cycle([reverse_spaceship_tilt2,
+                                                          reverse_spaceship_tilt1,
+                                                          reverse_spaceship,
+                                                          reverse_spaceship_tilt2_flip,
+                                                          reverse_spaceship_tilt1_flip,
+                                                          self.spaceship_normal])
 
         bullet_sprite_sheet = SpriteSheet(os.path.join('bitmaps',
                                                        'bullet.png'))
@@ -453,8 +475,14 @@ class Player(pygame.sprite.Sprite):
         #chapter=bitmapped_graphics_and_sound
         if pygame.mixer:
             self.fire_sound = pygame.mixer.Sound(os.path.join('sounds',
-                                                          'laser5.ogg'))
+                                                              'laser5.ogg'))
+            self.collision_sound = pygame.mixer.Sound(os.path.join('sounds',
+                                                              '27826_erdie_sword01_short.ogg'))
         self.score = 0
+        self.last_hit_points = self.physical_obj['hit_points']
+        self.last_time_immortal = pygame.time.get_ticks()
+        self.immortality_interval = 800
+        self.iteration = 0
 
     def create_bullet(self):
         """ Generate a bullet. """
@@ -501,6 +529,14 @@ class Player(pygame.sprite.Sprite):
 
         #logging.debug('new pos ', self.rect.x, ' ', self.rect.y)
         return bullet
+        
+    def set_temporary_immortality(self):
+        """ Make immortal after one damage is received """
+        
+        self.physical_obj['immortal'] = True
+        self.physical_obj['damage'] = 0.0
+        self.last_time_immortal = pygame.time.get_ticks()
+            
 
     def update(self):
         """ Update player spaceship """
@@ -522,21 +558,39 @@ class Player(pygame.sprite.Sprite):
         elif self.rect.x > SCREEN_WIDTH - self.rect.width:
             self.rect.x = SCREEN_WIDTH - self.rect.width
 
+        # remove immortality if time expired
+        if self.physical_obj['immortal']:        
+            ticks_now = pygame.time.get_ticks()
+            if ticks_now - self.last_time_immortal >= self.immortality_interval:
+                self.physical_obj['immortal'] = False
+
+        #check if damage received, if so make it immortal for a period of time
+        if self.last_hit_points > self.physical_obj['hit_points']:
+            self.set_temporary_immortality()
+            
+        self.last_hit_points = self.physical_obj['hit_points']
+        
+        
         #change the image accordingly
-        if x_speed < 0 and self.image != self.spaceship_left:
-            self.image = self.spaceship_left
-        elif x_speed > 0 and self.image != self.spaceship_right:
-            self.image = self.spaceship_right
-        elif x_speed == 0:
-            self.image = next(self.iterator_spaceship_center)
+        if self.physical_obj['immortal']:
+            if self.iteration % 5 == 0:
+                self.image = next(self.iterator_spaceship_reverse)
+        else:
+            if x_speed < 0 and self.image != self.spaceship_left:
+                self.image = self.spaceship_left
+            elif x_speed > 0 and self.image != self.spaceship_right:
+                self.image = self.spaceship_right
+            elif x_speed == 0 and self.iteration % 3 == 0:
+                self.image = next(self.iterator_spaceship_center)
 
-
+        self.iteration += 1
+        
 class Bullet(pygame.sprite.Sprite):
     """ This class represents the bullet . """
 
     image_default = None
 
-    def __init__(self,  x_speed=0, y_speed=3, enemy=False, image=None):
+    def __init__(self, x_speed=0, y_speed=3, enemy=False, image=None):
         # Call the parent class (Sprite) constructor
         super().__init__()
 
@@ -589,7 +643,8 @@ class Game(object):
         self.pause = False
         self.game_over_music_enabled = False
         self.fps = 0.0
-        self.font = pygame.font.Font(os.path.join('fonts','PressStart2P.ttf'), 8)
+        self.font = pygame.font.Font(os.path.join('fonts', 'PressStart2P.ttf'),
+                                     8)
 
         self.all_sprites_list = pygame.sprite.Group()
         self.player_object_list = pygame.sprite.Group()
@@ -597,8 +652,8 @@ class Game(object):
         self.enemy_object_list = pygame.sprite.Group()
         #it contains only ships and monsters
         self.enemy_list = pygame.sprite.Group()
-        
-        self.last_time_enemy_killed = 0
+
+        self.last_time_enemy_killed = pygame.time.get_ticks()
         self.milliseconds_per_kill = 1500
 
 
@@ -610,7 +665,7 @@ class Game(object):
 
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
-        
+
         # Test boss
         #self.add_whale()
 
@@ -618,7 +673,7 @@ class Game(object):
             # http://www.khinsider.com/midi/nes/guardian-legend
             pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
             pygame.mixer.music.play(-1)
-			
+
         # Load TMX data
         tmx_data = load_pygame(os.path.join('maps', 'map.tmx'))
 
@@ -626,8 +681,11 @@ class Game(object):
         map_data = pyscroll.TiledMapData(tmx_data)
 
         # Make layer
-        self.map_layer = pyscroll.BufferedRenderer(map_data, (SCREEN_WIDTH, SCREEN_HEIGHT))
-        self.center_map = [self.map_layer.map_rect.width//2, self.map_layer.map_rect.height - SCREEN_HEIGHT//2]
+        self.map_layer = pyscroll.BufferedRenderer(map_data,
+                                                   (SCREEN_WIDTH,
+                                                    SCREEN_HEIGHT))
+        self.center_map = [self.map_layer.map_rect.width//2,
+                           self.map_layer.map_rect.height - SCREEN_HEIGHT//2]
 
     def add_enemy(self):
         """ Create an instance of an enemy. """
@@ -649,7 +707,8 @@ class Game(object):
     def spawn_enemy(self):
         """ Spawn new enemy based on time interval. """
         ticks_now = pygame.time.get_ticks()
-        if ticks_now - self.last_time_spawn_enemy >= (self.milliseconds_per_kill * 0.80):#self.interval_spawn_enemy:
+        max_interval = self.milliseconds_per_kill * 0.980
+        if ticks_now - self.last_time_spawn_enemy >= max_interval:
             self.last_time_spawn_enemy = ticks_now
             # The boss can be spawn only when score is high
             if self.player.score < 50:
@@ -672,39 +731,41 @@ class Game(object):
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                return True
-            elif event.type==pygame.VIDEORESIZE:
+                return True, screen
+            elif event.type == pygame.VIDEORESIZE:
                 size_screen = event.dict['size']
-                screen=pygame.display.set_mode(size_screen, display_flags)
-                return False
+                screen = pygame.display.set_mode(size_screen, DISPLAY_FLAGS)
+                return False, screen
             if (self.game_over and (event.type == pygame.MOUSEBUTTONDOWN or
                (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN))):
                 self.__init__()
-                return False
-            elif (event.type == pygame.KEYDOWN and event.key == pygame.K_1):
-                resize_event = pygame.event.Event(pygame.VIDEORESIZE, {'size': [SCREEN_WIDTH , SCREEN_HEIGHT]})
+                return False, screen
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_1:
+                ev_dict = {'size': [SCREEN_WIDTH, SCREEN_HEIGHT]}
+                resize_event = pygame.event.Event(pygame.VIDEORESIZE, ev_dict)
                 pygame.event.post(resize_event)
-                return False
-            elif (event.type == pygame.KEYDOWN and event.key == pygame.K_2):
-                resize_event = pygame.event.Event(pygame.VIDEORESIZE, {'size': [SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2]})
+                return False, screen
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_2:
+                ev_dict = {'size': [SCREEN_WIDTH * 2, SCREEN_HEIGHT * 2]}
+                resize_event = pygame.event.Event(pygame.VIDEORESIZE, ev_dict)
                 pygame.event.post(resize_event)
-                return False
-            elif (event.type == pygame.KEYDOWN and event.key == pygame.K_p):
+                return False, screen
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                 self.pause = not self.pause
                 if self.pause:
                    pygame.mixer.music.set_volume(0.0)
                    pygame.mixer.music.pause() # midi does not stop
                 else:
                    pygame.mixer.music.set_volume(1.0)
-                   pygame.mixer.music.unpause()					  
+                   pygame.mixer.music.unpause()
 
             if not self.game_over and not self.pause:
                 bullet = self.player.process_event(event)
                 if bullet is not None:
                    self.all_sprites_list.add(bullet)
                    self.player_object_list.add(bullet)
-        
-        return False
+
+        return False, screen
 
     def run_logic(self):
         """
@@ -718,9 +779,9 @@ class Game(object):
                 pygame.mixer.music.load(os.path.join('sounds', 'game-over.mid'))
                 pygame.mixer.music.play(1)
                 self.game_over_music_enabled = True
-        
+
         elif self.pause:
-             pass # Do nothing for now	
+             pass # Do nothing for now
         else:
 
 
@@ -750,6 +811,8 @@ class Game(object):
                     self.enemy_object_list.add(bullets)
 
             # Check collisions
+            player_hp_old = self.player.physical_obj['hit_points']
+
             for ally_obj in  self.player_object_list:
                 enemy_hit_list = pygame.sprite.spritecollide(ally_obj,
                                                              self.enemy_object_list,
@@ -762,6 +825,10 @@ class Game(object):
                             enemy_obj.physical_obj['hit_points'] -= ally_obj.physical_obj['damage']
                             self.player.score += enemy_obj.physical_obj['score_value']
 
+            # Make sound if player gets damage
+            if (pygame.mixer and
+                player_hp_old - self.player.physical_obj['hit_points'] > 0):
+                self.player.collision_sound.play()
 
             # Check for dead objects to be removed
             dead_list = []
@@ -772,8 +839,8 @@ class Game(object):
                     logger.debug(str(sprite) + '  will be removed')
                     dead_list.append(sprite)
                     if not isinstance(sprite, Bullet):
-                        num_killed_enemy_now+= 1
-                    
+                        num_killed_enemy_now += 1
+
             for sprite in dead_list:
                 self.all_sprites_list.remove(sprite)
                 self.player_object_list.remove(sprite)
@@ -783,9 +850,12 @@ class Game(object):
             if num_killed_enemy_now > 0:
                 ticks_now = pygame.time.get_ticks()
                 interval_kills = (ticks_now - self.last_time_enemy_killed) / num_killed_enemy_now
-                self.last_time_enemy_killed = ticks_now                
-                alpha = 0.90
-                self.milliseconds_per_kill = alpha * self.milliseconds_per_kill + (1.0 - alpha) * interval_kills 
+                self.last_time_enemy_killed = ticks_now
+                alpha = 0.50
+                self.milliseconds_per_kill = exponential_smoothing(alpha,
+                                                                   interval_kills,
+                                                                   self.milliseconds_per_kill)
+                #self.milliseconds_per_kill = alpha * self.milliseconds_per_kill + (1.0 - alpha) * interval_kills
                 logger.debug('%10.2f ms/kills %10.2f kills/s',
                              self.milliseconds_per_kill,
                              1000.0/(self.milliseconds_per_kill))
@@ -796,14 +866,14 @@ class Game(object):
 
         # Score
         text_score = self.font.render("Score {0}".format(self.player.score)
-                                          , True, WHITE)
+                                      , True, WHITE)
         surface_fixed_size.blit(text_score, [5, 40])
 
         if self.game_over:
             offset_y = 14
             str_list = ['Game Over, click the mouse', 'or press enter to restart']
             for idx, str_display in enumerate(str_list):
-                text = self.font.render( str_display, True, WHITE)
+                text = self.font.render(str_display, True, WHITE)
                 center_x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
                 center_y = (SCREEN_HEIGHT // 2) - (text.get_height() // 2)
                 surface_fixed_size.blit(text, [center_x, center_y + idx * offset_y])
@@ -816,18 +886,18 @@ class Game(object):
 
             #Display fps in bottom left side
             text_fps = self.font.render("FPS {0}".format(round(self.fps, 1)),
-                                            True, WHITE)
+                                        True, WHITE)
             surface_fixed_size.blit(text_fps, [SCREEN_WIDTH -95, SCREEN_HEIGHT -20])
 
             # Hit points
             text_hp = self.font.render("HP {0}".format(
                 self.player.physical_obj['hit_points']), True, WHITE)
             surface_fixed_size.blit(text_hp, [SCREEN_WIDTH -60, 20])
-			
-			# Kill / s
+
+            # Kill / s
             text_kill_s = self.font.render("Kill/s {0:.2f}".format(
                 1000.0/(self.milliseconds_per_kill)), True, WHITE)
-            surface_fixed_size.blit(text_kill_s, [0, SCREEN_HEIGHT -20])			
+            surface_fixed_size.blit(text_kill_s, [0, SCREEN_HEIGHT -20])
 
         true_screen.blit(pygame.transform.scale(surface_fixed_size, true_screen.get_size()), (0, 0))
         pygame.display.flip()
@@ -841,7 +911,7 @@ def main():
     pygame.init()
 
     size = [SCREEN_WIDTH, SCREEN_HEIGHT]
-    screen = pygame.display.set_mode(size, display_flags)
+    screen = pygame.display.set_mode(size, DISPLAY_FLAGS)
 
     # Everything will be drawn on a fixed surface and then scaled
     surface_fixed_size = screen.copy()
@@ -849,11 +919,11 @@ def main():
     pygame.display.set_caption("Guardian")
     pygame.mouse.set_visible(False)
 
-	# Set Icon of the window
+    # Set Icon of the window
     sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'bosses.png'))
     icon = sprite_sheet.get_image(99, 312, 32, 32)
     pygame.display.set_icon(icon)
-	
+
     # Create our objects and set the data
     done = False
     clock = pygame.time.Clock()
@@ -865,7 +935,7 @@ def main():
     while not done:
 
         # Process events (keystrokes, mouse clicks, etc)
-        done = game.process_events(screen)
+        done, screen = game.process_events(screen)
 
         # Update object positions, check for collisions
         game.run_logic()
