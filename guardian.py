@@ -27,6 +27,7 @@ WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 PURPLE = (128, 0, 128)
+RED_EYE = (219, 43, 0)
 
 SCREEN_WIDTH = 256
 SCREEN_HEIGHT = 220
@@ -201,7 +202,6 @@ class Whale(pygame.sprite.Sprite):
                 return draw_circle_surface(radius, center, color, width)
 
             # Center
-            RED_EYE = (219, 43, 0)
             bullet = Bullet(enemy=True, image=draw_circle(RED_EYE, 8, 4))
             bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
             bullet.rect.y = self.rect.y + self.rect.height
@@ -424,6 +424,115 @@ class EnemySmallSpaceship(pygame.sprite.Sprite):
             self.rect.x = SCREEN_WIDTH - self.rect.width
 
 
+def on_keyboard_event_user1(event):
+    """ Convert keys to game event """
+
+    event_result = {'type': 'None', 'value': 'None'}
+
+    if event.type == pygame.KEYDOWN:
+        event_result['type'] = 'pressed'
+    elif event.type == pygame.KEYUP:
+        event_result['type'] = 'released'
+
+    if event_result['type'] != 'None':
+        if event.key == pygame.K_LEFT:
+            event_result['value'] = 'left'
+        elif event.key == pygame.K_RIGHT:
+            event_result['value'] = 'right'
+        elif event.key == pygame.K_UP:
+            event_result['value'] = 'up'
+        elif event.key == pygame.K_DOWN:
+            event_result['value'] = 'down'
+        elif event.key == pygame.K_SPACE:
+            event_result['value'] = 'fire'
+
+    return event_result
+
+def send_event_pause():
+    """ Send event pause/start """
+
+    ev_dict = {'type': 'pause'}
+    user_event = pygame.event.Event(pygame.USEREVENT, ev_dict)
+    pygame.event.post(user_event)
+
+    logger.debug('Pause event')
+
+
+class JoypadControl(object):
+    """ This class that handles the joypad inputs """
+
+    def __init__(self):
+
+        # Initialize the joysticks
+        pygame.joystick.init()
+
+        # Get count of joysticks
+        joystick_count = pygame.joystick.get_count()
+
+        logger.debug('Number joypads connected: %d', joystick_count)
+
+        self.joystick = None
+
+        if joystick_count:
+            self.joystick = pygame.joystick.Joystick(0) #first one
+            self.joystick.init()
+            self.numaxes = self.joystick.get_numaxes()
+            self.numbuttons = self.joystick.get_numbuttons()
+            self.axis_lr_pressed_old = 'left'
+            self.axis_ud_pressed_old = 'up'
+
+    def on_joypad_event(self, event):
+        """ Convert joypad to game event """
+        event_result = {'type': 'None', 'value': 'None'}
+
+        if not self.joystick or self.numaxes < 2 or self.numbuttons < 9:
+            return event_result
+
+        # Possible joystick actions: JOYAXISMOTION JOYBALLMOTION JOYBUTTONDOWN
+        # JOYBUTTONUP JOYHATMOTION
+        if event.type == pygame.JOYBUTTONDOWN:
+            event_result['type'] = 'pressed'
+            event_result['value'] = 'fire'
+#            for i in range(buttons):
+#                button = joystick.get_button(i)
+#                if button:
+#                    event_result['value'] = 'fire'
+#                    break
+            if self.joystick.get_button(8) or self.joystick.get_button(9):
+                send_event_pause()
+
+        elif event.type == pygame.JOYBUTTONUP:
+            event_result['type'] = 'released'
+            event_result['value'] = 'fire'
+
+        elif event.type == pygame.JOYAXISMOTION:
+            if event.dict['axis'] == 0:
+                if abs(event.dict['value']) < 0.5:
+                    event_result['type'] = 'released'
+                    event_result['value'] = self.axis_lr_pressed_old
+                else:
+                    event_result['type'] = 'pressed'
+                    if event.dict['value'] < 0.0:
+                        event_result['value'] = 'left'
+                    else:
+                        event_result['value'] = 'right'
+                    self.axis_lr_pressed_old = event_result['value']
+
+            if event.dict['axis'] == 1:
+                if abs(event.dict['value']) < 0.5:
+                    event_result['type'] = 'released'
+                    event_result['value'] = self.axis_ud_pressed_old
+                else:
+                    event_result['type'] = 'pressed'
+                    if event.dict['value'] < 0.0:
+                        event_result['value'] = 'up'
+                    else:
+                        event_result['value'] = 'down'
+                    self.axis_ud_pressed_old = event_result['value']
+
+        return event_result
+
+
 class Player(pygame.sprite.Sprite):
 
 
@@ -448,16 +557,16 @@ class Player(pygame.sprite.Sprite):
         reverse_spaceship_tilt1 = sprite_sheet.get_image(366, 46, 18, 28)
         reverse_spaceship_tilt2 = sprite_sheet.get_image(345, 47, 14, 27)
         reverse_spaceship_tilt1_flip = pygame.transform.flip(reverse_spaceship_tilt1,
-                                                     True, False)
+                                                             True, False)
         reverse_spaceship_tilt2_flip = pygame.transform.flip(reverse_spaceship_tilt2,
-                                                     True, False)
+                                                             True, False)
 
         self.iterator_spaceship_reverse = itertools.cycle([reverse_spaceship_tilt2,
-                                                          reverse_spaceship_tilt1,
-                                                          reverse_spaceship,
-                                                          reverse_spaceship_tilt2_flip,
-                                                          reverse_spaceship_tilt1_flip,
-                                                          self.spaceship_normal])
+                                                           reverse_spaceship_tilt1,
+                                                           reverse_spaceship,
+                                                           reverse_spaceship_tilt2_flip,
+                                                           reverse_spaceship_tilt1_flip,
+                                                           self.spaceship_normal])
 
         bullet_sprite_sheet = SpriteSheet(os.path.join('bitmaps',
                                                        'bullet.png'))
@@ -484,6 +593,8 @@ class Player(pygame.sprite.Sprite):
         self.immortality_interval = 800
         self.iteration = 0
 
+        self.joypad = JoypadControl()
+
     def create_bullet(self):
         """ Generate a bullet. """
         bullet = Bullet(image=self.bullet_image)
@@ -499,44 +610,51 @@ class Player(pygame.sprite.Sprite):
         #Move player
         bullet = None
 
-        if event.type == pygame.KEYDOWN:
+        game_event = on_keyboard_event_user1(event)
+
+        if game_event['type'] == 'None' or game_event['value'] == 'None':
+            game_event = self.joypad.on_joypad_event(event)
+            if game_event['type'] == 'None' or game_event['value'] == 'None':
+                return None
+
+        if game_event['type'] == 'pressed':
             # Figure out if it was an arrow key. If so
             # adjust speed.
-            if event.key == pygame.K_LEFT:
+            if game_event['value'] == 'left':
                 self.x_speed_left = -3
-            elif event.key == pygame.K_RIGHT:
+            elif game_event['value'] == 'right':
                 self.x_speed_right = 3
-            elif event.key == pygame.K_UP:
+            elif game_event['value'] == 'up':
                 self.y_speed_up = -3
-            elif event.key == pygame.K_DOWN:
+            elif game_event['value'] == 'down':
                 self.y_speed_down = 3
-            elif event.key == pygame.K_SPACE:
+            elif game_event['value'] == 'fire':
                 bullet = self.create_bullet()
                 if pygame.mixer:
                     self.fire_sound.play()
         # User let up on a key
-        elif event.type == pygame.KEYUP:
+        elif game_event['type'] == 'released':
                 # If it is an arrow key, reset vector back to zero
-            if event.key == pygame.K_LEFT:
+            if game_event['value'] == 'left':
                 self.x_speed_left = 0
-            elif event.key == pygame.K_RIGHT:
+            elif game_event['value'] == 'right':
                 self.x_speed_right = 0
-            elif event.key == pygame.K_UP:
+            elif game_event['value'] == 'up':
                 self.y_speed_up = 0
-            elif event.key == pygame.K_DOWN:
+            elif game_event['value'] == 'down':
                 self.y_speed_down = 0
         #pos = pygame.mouse.get_pos()
 
         #logging.debug('new pos ', self.rect.x, ' ', self.rect.y)
         return bullet
-        
+
     def set_temporary_immortality(self):
         """ Make immortal after one damage is received """
-        
+
         self.physical_obj['immortal'] = True
         self.physical_obj['damage'] = 0.0
         self.last_time_immortal = pygame.time.get_ticks()
-            
+
 
     def update(self):
         """ Update player spaceship """
@@ -559,7 +677,7 @@ class Player(pygame.sprite.Sprite):
             self.rect.x = SCREEN_WIDTH - self.rect.width
 
         # remove immortality if time expired
-        if self.physical_obj['immortal']:        
+        if self.physical_obj['immortal']:
             ticks_now = pygame.time.get_ticks()
             if ticks_now - self.last_time_immortal >= self.immortality_interval:
                 self.physical_obj['immortal'] = False
@@ -567,10 +685,10 @@ class Player(pygame.sprite.Sprite):
         #check if damage received, if so make it immortal for a period of time
         if self.last_hit_points > self.physical_obj['hit_points']:
             self.set_temporary_immortality()
-            
+
         self.last_hit_points = self.physical_obj['hit_points']
-        
-        
+
+
         #change the image accordingly
         if self.physical_obj['immortal']:
             if self.iteration % 5 == 0:
@@ -584,7 +702,7 @@ class Player(pygame.sprite.Sprite):
                 self.image = next(self.iterator_spaceship_center)
 
         self.iteration += 1
-        
+
 class Bullet(pygame.sprite.Sprite):
     """ This class represents the bullet . """
 
@@ -730,14 +848,17 @@ class Game(object):
             to close the window. """
 
         for event in pygame.event.get():
+
             if event.type == pygame.QUIT:
                 return True, screen
             elif event.type == pygame.VIDEORESIZE:
                 size_screen = event.dict['size']
                 screen = pygame.display.set_mode(size_screen, DISPLAY_FLAGS)
                 return False, screen
-            if (self.game_over and (event.type == pygame.MOUSEBUTTONDOWN or
-               (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN))):
+            if (self.game_over and
+               (event.type == pygame.MOUSEBUTTONDOWN or
+               (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN) or
+               (event.type == pygame.USEREVENT and event.dict['type'] == 'pause'))):
                 self.__init__()
                 return False, screen
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_1:
@@ -751,19 +872,26 @@ class Game(object):
                 pygame.event.post(resize_event)
                 return False, screen
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                send_event_pause()
+
+            if event.type == pygame.USEREVENT and event.dict['type'] == 'pause':
                 self.pause = not self.pause
                 if self.pause:
-                   pygame.mixer.music.set_volume(0.0)
-                   pygame.mixer.music.pause() # midi does not stop
+                    pygame.mixer.music.set_volume(0.0)
+                    pygame.mixer.music.pause() # midi does not stop
                 else:
-                   pygame.mixer.music.set_volume(1.0)
-                   pygame.mixer.music.unpause()
+                    pygame.mixer.music.set_volume(1.0)
+                    pygame.mixer.music.unpause()
+
 
             if not self.game_over and not self.pause:
                 bullet = self.player.process_event(event)
                 if bullet is not None:
-                   self.all_sprites_list.add(bullet)
-                   self.player_object_list.add(bullet)
+                    self.all_sprites_list.add(bullet)
+                    self.player_object_list.add(bullet)
+            else:
+                # check for the event to unpause the game
+                self.player.joypad.on_joypad_event(event)
 
         return False, screen
 
@@ -781,7 +909,7 @@ class Game(object):
                 self.game_over_music_enabled = True
 
         elif self.pause:
-             pass # Do nothing for now
+            pass # Do nothing for now
         else:
 
 
@@ -827,7 +955,7 @@ class Game(object):
 
             # Make sound if player gets damage
             if (pygame.mixer and
-                player_hp_old - self.player.physical_obj['hit_points'] > 0):
+                    player_hp_old - self.player.physical_obj['hit_points'] > 0):
                 self.player.collision_sound.play()
 
             # Check for dead objects to be removed
