@@ -94,6 +94,11 @@ class PIController(object):
                            -self.anti_windup)
         return control_value
 
+    def __repr__(self):
+        """ Representation of the object """
+        return "PIController(kp={0}, ki={1}, anti_windup={2})".format(self.kp_gain,
+                             self.ki_gain, self.anti_windup)
+
 
 def exponential_smoothing(alpha, val, old_filt_val):
     """ Exponential smoothing """
@@ -593,6 +598,8 @@ class Player(pygame.sprite.Sprite):
         self.immortality_interval = 800
         self.iteration = 0
 
+        self.bullet = None
+
         self.joypad = JoypadControl()
 
     def create_bullet(self):
@@ -604,11 +611,25 @@ class Player(pygame.sprite.Sprite):
 
         return bullet
 
+    def fire(self):
+        """ Return bullet if it was prepared for. """
+
+        if self.bullet:
+
+            ret_bullet = self.bullet
+            self.bullet = None
+
+            if pygame.mixer:
+                self.fire_sound.play()
+
+            return ret_bullet
+        else:
+            return None
+
     def process_event(self, event):
         """ Update the player location. """
 
-        #Move player
-        bullet = None
+        #Select player action to apply in next update step
 
         game_event = on_keyboard_event_user1(event)
 
@@ -629,9 +650,7 @@ class Player(pygame.sprite.Sprite):
             elif game_event['value'] == 'down':
                 self.y_speed_down = 3
             elif game_event['value'] == 'fire':
-                bullet = self.create_bullet()
-                if pygame.mixer:
-                    self.fire_sound.play()
+                self.bullet = self.create_bullet()
         # User let up on a key
         elif game_event['type'] == 'released':
                 # If it is an arrow key, reset vector back to zero
@@ -646,7 +665,7 @@ class Player(pygame.sprite.Sprite):
         #pos = pygame.mouse.get_pos()
 
         #logging.debug('new pos ', self.rect.x, ' ', self.rect.y)
-        return bullet
+        return None
 
     def set_temporary_immortality(self):
         """ Make immortal after one damage is received """
@@ -784,6 +803,8 @@ class Game(object):
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
 
+        self.max_score = 0
+
         # Test boss
         #self.add_whale()
 
@@ -825,7 +846,10 @@ class Game(object):
     def spawn_enemy(self):
         """ Spawn new enemy based on time interval. """
         ticks_now = pygame.time.get_ticks()
-        max_interval = self.milliseconds_per_kill * 0.980
+        max_interval = max(self.milliseconds_per_kill * 0.80,
+                           self.interval_spawn_enemy / 2.0)
+        max_interval = min(max_interval, self.interval_spawn_enemy * 1.5)
+
         if ticks_now - self.last_time_spawn_enemy >= max_interval:
             self.last_time_spawn_enemy = ticks_now
             # The boss can be spawn only when score is high
@@ -848,6 +872,8 @@ class Game(object):
             to close the window. """
 
         for event in pygame.event.get():
+
+            # Generic game events
 
             if event.type == pygame.QUIT:
                 return True, screen
@@ -883,15 +909,9 @@ class Game(object):
                     pygame.mixer.music.set_volume(1.0)
                     pygame.mixer.music.unpause()
 
+            #Player events
 
-            if not self.game_over and not self.pause:
-                bullet = self.player.process_event(event)
-                if bullet is not None:
-                    self.all_sprites_list.add(bullet)
-                    self.player_object_list.add(bullet)
-            else:
-                # check for the event to unpause the game
-                self.player.joypad.on_joypad_event(event)
+            self.player.process_event(event)
 
         return False, screen
 
@@ -908,10 +928,14 @@ class Game(object):
                 pygame.mixer.music.play(1)
                 self.game_over_music_enabled = True
 
+                if self.player.score > self.max_score:
+                    self.max_score = self.player.score
+
         elif self.pause:
             pass # Do nothing for now
         else:
 
+            # Scroll map
 
             self.center_map[1] = self.center_map[1] - 3
 
@@ -919,6 +943,8 @@ class Game(object):
                 self.center_map[1] = self.map_layer.map_rect.height - SCREEN_HEIGHT // 2 -3
 
             self.map_layer.center(self.center_map)
+
+            # Spawn new enemy if time
 
             self.spawn_enemy()
 
@@ -931,7 +957,13 @@ class Game(object):
 
             self.all_sprites_list.update()
 
-            # Add new bullet
+            # Add new bullet for player
+            bullet = self.player.fire()
+            if bullet:
+                self.all_sprites_list.add(bullet)
+                self.player_object_list.add(bullet)
+
+            # Add new bullet for enemies
             for enemy in self.enemy_list:
                 bullets = enemy.fire()
                 if bullets:
@@ -945,11 +977,16 @@ class Game(object):
                 enemy_hit_list = pygame.sprite.spritecollide(ally_obj,
                                                              self.enemy_object_list,
                                                              False)
+
+                # When player is immortal to not check collision with him
+                if ally_obj == self.player and self.player.physical_obj['immortal']:
+                    continue
+
                 for enemy_obj in enemy_hit_list:
                     if not isinstance(ally_obj, Bullet) or not isinstance(enemy_obj, Bullet):
                         if ally_obj.physical_obj['immortal'] is False:
                             ally_obj.physical_obj['hit_points'] -= enemy_obj.physical_obj['damage']
-                        if enemy_obj.physical_obj['immortal'] is False:
+                        if not enemy_obj.physical_obj['immortal']:
                             enemy_obj.physical_obj['hit_points'] -= ally_obj.physical_obj['damage']
                             self.player.score += enemy_obj.physical_obj['score_value']
 
@@ -992,14 +1029,10 @@ class Game(object):
         """ Display everything to the screen for the game. """
         surface_fixed_size.fill(BLACK)
 
-        # Score
-        text_score = self.font.render("Score {0}".format(self.player.score)
-                                      , True, WHITE)
-        surface_fixed_size.blit(text_score, [5, 40])
-
         if self.game_over:
             offset_y = 14
-            str_list = ['Game Over, click the mouse', 'or press enter to restart']
+            str_list = ['Game Over, click the mouse', 'or press enter to restart',
+                        'Score {0}, Max {1}'.format(self.player.score, self.max_score)]
             for idx, str_display in enumerate(str_list):
                 text = self.font.render(str_display, True, WHITE)
                 center_x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
@@ -1011,6 +1044,11 @@ class Game(object):
             self.map_layer.draw(surface_fixed_size, surface_fixed_size.get_rect())
 
             self.all_sprites_list.draw(surface_fixed_size)
+
+            # Score
+            text_score = self.font.render("Score {0}".format(self.player.score)
+                                          , True, WHITE)
+            surface_fixed_size.blit(text_score, [5, 20])
 
             #Display fps in bottom left side
             text_fps = self.font.render("FPS {0}".format(round(self.fps, 1)),
@@ -1026,6 +1064,14 @@ class Game(object):
             text_kill_s = self.font.render("Kill/s {0:.2f}".format(
                 1000.0/(self.milliseconds_per_kill)), True, WHITE)
             surface_fixed_size.blit(text_kill_s, [0, SCREEN_HEIGHT -20])
+
+            if self.pause:
+                #Display fps in bottom left side
+                text_pause = self.font.render("PAUSED", True, WHITE)
+                center_x = (SCREEN_WIDTH // 2) - (text_pause.get_width() // 2)
+                center_y = (SCREEN_HEIGHT // 2) - (text_pause.get_height() // 2)
+                surface_fixed_size.blit(text_pause, [center_x, center_y])
+
 
         true_screen.blit(pygame.transform.scale(surface_fixed_size, true_screen.get_size()), (0, 0))
         pygame.display.flip()
