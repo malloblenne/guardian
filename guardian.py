@@ -763,6 +763,54 @@ class Bullet(pygame.sprite.Sprite):
         if self.rect.x <= self.rect.width or self.rect.x >= SCREEN_WIDTH:
             self.physical_obj['hit_points'] = 0 #dead
 
+
+def print_text_on_surface(font, str_list, surface, center, offset_line):
+    """ Show multi line text on surface """
+
+    for idx, str_display in enumerate(str_list):
+        text = font.render(str_display, True, WHITE)
+        center_x = center[0] - (text.get_width() // 2)
+        center_y = center[1] - (text.get_height() // 2)
+        surface.blit(text, [center_x, center_y + idx * offset_line])
+
+
+class StartScreen(object):
+    """ This class encapsulates the start screen menu """
+
+    image_eye = None
+
+    def __init__(self):
+        sprite_sheet = SpriteSheet(os.path.join('bitmaps','originalStartup.png'),
+                               color_key=BLACK)
+        StartScreen.image_eye = sprite_sheet.get_image(80, 0, 96, 88)
+
+        self.font_title = pygame.font.Font(os.path.join('fonts', 'PressStart2P.ttf'),
+                                     12)
+
+        self.font = pygame.font.Font(os.path.join('fonts', 'PressStart2P.ttf'),
+                                     8)
+
+    def play_music(self):
+        """ Start start screen theme """
+        if pygame.mixer:
+        # http://www.khinsider.com/midi/nes/guardian-legend
+            pygame.mixer.music.load(os.path.join('sounds', 'title.mid'))
+            pygame.mixer.music.play(-1)
+
+
+    def draw(self, surface):
+        """ Draw startup screen on surface """
+
+        surface.blit(StartScreen.image_eye, (80,0))
+
+        center = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 2))
+        print_text_on_surface(self.font_title, ['-= Guardian =-', 'a tribute'],
+                              surface, center, 14)
+
+        text_pos = (center[0], center[1] + 50)
+        print_text_on_surface(self.font, ['press to start'],
+                              surface, text_pos, 14)
+
 class Game(object):
     """ This class represents an instance of the game. If we need to
         reset the game we'd just need to create a new instance of this
@@ -776,6 +824,8 @@ class Game(object):
     # Set up the game
     def __init__(self):
         self.score = 0
+        self.start_screen = True
+        self.start_screen_obj = StartScreen()
         self.game_over = False
         self.pause = False
         self.game_over_music_enabled = False
@@ -808,10 +858,7 @@ class Game(object):
         # Test boss
         #self.add_whale()
 
-        if pygame.mixer:
-            # http://www.khinsider.com/midi/nes/guardian-legend
-            pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
-            pygame.mixer.music.play(-1)
+        self.start_screen_obj.play_music()
 
         # Load TMX data
         tmx_data = load_pygame(os.path.join('maps', 'map.tmx'))
@@ -874,6 +921,16 @@ class Game(object):
         for event in pygame.event.get():
 
             # Generic game events
+            if self.start_screen:
+                if (event.type == pygame.KEYDOWN or
+                event.type == pygame.JOYBUTTONDOWN):
+                    self.start_screen = False
+
+                    if pygame.mixer:
+                        # http://www.khinsider.com/midi/nes/guardian-legend
+                        pygame.mixer.music.load(os.path.join('sounds', 'corridor-0.mid'))
+                        pygame.mixer.music.play(-1)
+
 
             if event.type == pygame.QUIT:
                 return True, screen
@@ -921,7 +978,11 @@ class Game(object):
         updates positions and checks for collisions.
         """
         self.game_over = self.player.physical_obj['hit_points'] <= 0
-        if self.game_over:
+
+
+        if self.start_screen:
+          pass
+        elif self.game_over:
             if not self.game_over_music_enabled and pygame.mixer:
                 pygame.mixer.music.stop()
                 pygame.mixer.music.load(os.path.join('sounds', 'game-over.mid'))
@@ -1029,17 +1090,21 @@ class Game(object):
         """ Display everything to the screen for the game. """
         surface_fixed_size.fill(BLACK)
 
-        if self.game_over:
+        if self.start_screen:
+            self.start_screen_obj.draw(surface_fixed_size)
+
+        elif self.game_over:
             offset_y = 14
             str_list = ['Game Over, click the mouse', 'or press enter to restart',
-                        'Score {0}, Max {1}'.format(self.player.score, self.max_score)]
+                        '','','',
+                        'Score {0} - Max {1}'.format(self.player.score, self.max_score)]
             for idx, str_display in enumerate(str_list):
                 text = self.font.render(str_display, True, WHITE)
                 center_x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
                 center_y = (SCREEN_HEIGHT // 2) - (text.get_height() // 2)
                 surface_fixed_size.blit(text, [center_x, center_y + idx * offset_y])
 
-        if not self.game_over:
+        else:
 
             self.map_layer.draw(surface_fixed_size, surface_fixed_size.get_rect())
 
