@@ -3,6 +3,9 @@
 During my childhood I was especially fond of a NES game named [The Guardian Legend](https://en.wikipedia.org/wiki/The_Guardian_Legend).
 It came natural to me to start my adventure in the world of programming videogames by beginning with a tribute to this game.
 
+![screenshot](http://malloblenne.github.io/images/guardian/screenshot0001.PNG)
+
+
 ## Purpose of the project
 
 My idea is to keep the game logic as simple as possible and let it be my first little creature.
