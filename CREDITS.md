@@ -6,9 +6,6 @@ Developed by Mauro Brenna.
 Programming
 ------------
 
-Programming
-------------
-
 * [Mauro Brenna](mailto:malloblenne@gmail.com)
 
 
