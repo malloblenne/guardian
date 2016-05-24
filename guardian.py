@@ -34,6 +34,9 @@ SCREEN_HEIGHT = 220
 
 FPS = 60
 
+PLAYER_HP = 3
+PLAYER_IMMORTAL = False
+
 DISPLAY_FLAGS = pygame.HWSURFACE|pygame.DOUBLEBUF|pygame.RESIZABLE
 
 #--- Logger ---
@@ -199,6 +202,7 @@ class Whale(pygame.sprite.Sprite):
                 """ Create a surface with a circle in the middle"""
                 bullet_surf = pygame.Surface([2 * radius, 2 * radius])
                 pygame.draw.circle(bullet_surf, color, center, radius, width)
+                bullet_surf.set_colorkey(BLACK)
                 return bullet_surf
 
             def draw_circle(color, radius, width):
@@ -490,7 +494,7 @@ class JoypadControl(object):
         """ Convert joypad to game event """
         event_result = {'type': 'None', 'value': 'None'}
 
-        if not self.joystick or self.numaxes < 2 or self.numbuttons < 9:
+        if not self.joystick or self.numaxes < 2 or self.numbuttons < 10:
             return event_result
 
         # Possible joystick actions: JOYAXISMOTION JOYBALLMOTION JOYBUTTONDOWN
@@ -544,7 +548,9 @@ class Player(pygame.sprite.Sprite):
     """ This class represents the player. Spaceship """
     def __init__(self):
         super().__init__()
-        self.physical_obj = create_physical_object_dict(hit_points=3, damage=1)
+        self.physical_obj = create_physical_object_dict(hit_points=PLAYER_HP,
+                                                        immortal=PLAYER_IMMORTAL,
+                                                        damage=1)
         sprite_sheet = SpriteSheet(os.path.join('bitmaps',
                                                 'theGuardian.png'))
 
@@ -596,6 +602,7 @@ class Player(pygame.sprite.Sprite):
         self.last_hit_points = self.physical_obj['hit_points']
         self.last_time_immortal = pygame.time.get_ticks()
         self.immortality_interval = 800
+        self.immortality_always = PLAYER_IMMORTAL
         self.iteration = 0
 
         self.bullet = None
@@ -696,7 +703,7 @@ class Player(pygame.sprite.Sprite):
             self.rect.x = SCREEN_WIDTH - self.rect.width
 
         # remove immortality if time expired
-        if self.physical_obj['immortal']:
+        if self.physical_obj['immortal'] and not self.immortality_always:
             ticks_now = pygame.time.get_ticks()
             if ticks_now - self.last_time_immortal >= self.immortality_interval:
                 self.physical_obj['immortal'] = False
@@ -709,7 +716,7 @@ class Player(pygame.sprite.Sprite):
 
 
         #change the image accordingly
-        if self.physical_obj['immortal']:
+        if self.physical_obj['immortal'] and not self.immortality_always:
             if self.iteration % 5 == 0:
                 self.image = next(self.iterator_spaceship_reverse)
         else:
@@ -780,12 +787,12 @@ class StartScreen(object):
     image_eye = None
 
     def __init__(self):
-        sprite_sheet = SpriteSheet(os.path.join('bitmaps','originalStartup.png'),
-                               color_key=BLACK)
+        sprite_sheet = SpriteSheet(os.path.join('bitmaps', 'originalStartup.png'),
+                                   color_key=BLACK)
         StartScreen.image_eye = sprite_sheet.get_image(80, 0, 96, 88)
 
         self.font_title = pygame.font.Font(os.path.join('fonts', 'PressStart2P.ttf'),
-                                     12)
+                                           12)
 
         self.font = pygame.font.Font(os.path.join('fonts', 'PressStart2P.ttf'),
                                      8)
@@ -801,7 +808,7 @@ class StartScreen(object):
     def draw(self, surface):
         """ Draw startup screen on surface """
 
-        surface.blit(StartScreen.image_eye, (80,0))
+        surface.blit(StartScreen.image_eye, (80, 0))
 
         center = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 2))
         print_text_on_surface(self.font_title, ['-= Guardian =-', 'a tribute'],
@@ -861,7 +868,7 @@ class Game(object):
         self.start_screen_obj.play_music()
 
         # Load TMX data
-        tmx_data = load_pygame(os.path.join('maps', 'map.tmx'))
+        tmx_data = load_pygame(os.path.join('maps', 'mapcorridor.tmx'))
 
         # Make data source for the map
         map_data = pyscroll.TiledMapData(tmx_data)
@@ -939,9 +946,9 @@ class Game(object):
                 screen = pygame.display.set_mode(size_screen, DISPLAY_FLAGS)
                 return False, screen
             if (self.game_over and
-               (event.type == pygame.MOUSEBUTTONDOWN or
-               (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN) or
-               (event.type == pygame.USEREVENT and event.dict['type'] == 'pause'))):
+                (event.type == pygame.MOUSEBUTTONDOWN or
+                (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN) or
+                (event.type == pygame.USEREVENT and event.dict['type'] == 'pause'))):
                 self.__init__()
                 return False, screen
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_1:
@@ -981,7 +988,7 @@ class Game(object):
 
 
         if self.start_screen:
-          pass
+            pass
         elif self.game_over:
             if not self.game_over_music_enabled and pygame.mixer:
                 pygame.mixer.music.stop()
@@ -998,10 +1005,15 @@ class Game(object):
 
             # Scroll map
 
-            self.center_map[1] = self.center_map[1] - 3
+            scroll_speed = 4
 
-            if self.center_map[1] < 0:
-                self.center_map[1] = self.map_layer.map_rect.height - SCREEN_HEIGHT // 2 -3
+            half_height = SCREEN_HEIGHT // 2
+
+            self.center_map[1] = self.center_map[1] - scroll_speed
+
+            if self.center_map[1] < half_height:
+                self.center_map[1] = (self.map_layer.map_rect.height -
+                                      half_height - scroll_speed)
 
             self.map_layer.center(self.center_map)
 
@@ -1096,13 +1108,10 @@ class Game(object):
         elif self.game_over:
             offset_y = 14
             str_list = ['Game Over, click the mouse', 'or press enter to restart',
-                        '','','',
+                        '', '', '',
                         'Score {0} - Max {1}'.format(self.player.score, self.max_score)]
-            for idx, str_display in enumerate(str_list):
-                text = self.font.render(str_display, True, WHITE)
-                center_x = (SCREEN_WIDTH // 2) - (text.get_width() // 2)
-                center_y = (SCREEN_HEIGHT // 2) - (text.get_height() // 2)
-                surface_fixed_size.blit(text, [center_x, center_y + idx * offset_y])
+            print_text_on_surface(self.font, str_list, surface_fixed_size,
+                                  (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2), offset_y)
 
         else:
 
@@ -1129,6 +1138,11 @@ class Game(object):
             text_kill_s = self.font.render("Kill/s {0:.2f}".format(
                 1000.0/(self.milliseconds_per_kill)), True, WHITE)
             surface_fixed_size.blit(text_kill_s, [0, SCREEN_HEIGHT -20])
+
+            #test Map coordinate
+            #text_map = self.font.render("Map 1 {0}".format(
+            #    self.center_map[1]), True, WHITE)
+            #surface_fixed_size.blit(text_map, [SCREEN_WIDTH//2, SCREEN_HEIGHT -80])
 
             if self.pause:
                 #Display fps in bottom left side
