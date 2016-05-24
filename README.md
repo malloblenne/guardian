@@ -37,12 +37,20 @@ But I want to keep the game enjoyable and fun.
  * Install pyscroll
  
 ## How to play
- 
- The player spaceship can be controlled using the arrow keys and firing with the spacebar.
- To restart the game after a game over, press the return key.
- To pause and unpause the game press the key p.
- To zoom x2 press the key 2. For the original NES zoom, press 1.
 
+### Keyboard
+ 
+ * The player spaceship can be controlled using the arrow keys
+ * Spaceship shoots pressing the space bar.
+ * To restart the game after a game over, press the return key.
+ * To pause and unpause the game press the key p.
+ * To zoom x2 press the key 2. For the original NES zoom, press 1.
+
+### Joypad
+
+ * Spaceship moves with joypad arrows
+ * Press any buttons (numbers < 8) to shoot
+ * Press button 7 or 8 to pause
 
 ## Copyright
 
