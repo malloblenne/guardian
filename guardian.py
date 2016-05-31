@@ -3,6 +3,7 @@
 """
 Created on Sun Apr 10 18:26:05 2016
 Inspired by the tutorials: http://programarcadegames.com/
+A tribute to the videogame for NES named "The Guardian Legend"
 
 @author: Mauro Brenna
 """
@@ -71,9 +72,9 @@ class SpriteSheet(object):
         # Copy the sprite from the large sheet onto the smaller image
         image.blit(self.sprite_sheet, (0, 0), (x_pos, y_pos, width, height))
 
-        # Assuming black works as the transparent color
-        #image.set_colorkey(BLACK)
+        # color key is used to determine the transparent color
         image.set_colorkey(self.color_key)
+
         # Return the image
         return image
 
