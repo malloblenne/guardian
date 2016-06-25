@@ -130,7 +130,7 @@ class Whale(pygame.sprite.Sprite):
 
     def __init__(self):
         """ Constructor """
-        super().__init__()
+        super().__init__(self.containers)
         self.physical_obj = create_physical_object_dict(hit_points=50, damage=1,
                                                         score_value=200//50)
 
@@ -330,7 +330,7 @@ class EnemySmallSpaceship(pygame.sprite.Sprite):
 
     def __init__(self):
         """ Constructor """
-        super().__init__()
+        super().__init__(self.containers)
         self.physical_obj = create_physical_object_dict(hit_points=1,
                                                         damage=1,
                                                         score_value=2)
@@ -548,7 +548,7 @@ class Player(pygame.sprite.Sprite):
 
     """ This class represents the player. Spaceship """
     def __init__(self):
-        super().__init__()
+        super().__init__(self.containers)
         self.physical_obj = create_physical_object_dict(hit_points=PLAYER_HP,
                                                         immortal=PLAYER_IMMORTAL,
                                                         damage=1)
@@ -737,7 +737,7 @@ class Bullet(pygame.sprite.Sprite):
 
     def __init__(self, x_speed=0, y_speed=3, enemy=False, image=None):
         # Call the parent class (Sprite) constructor
-        super().__init__()
+        super().__init__(self.containers)
 
         self.physical_obj = create_physical_object_dict(damage=1)
         self.x_speed = x_speed
@@ -848,6 +848,11 @@ class Game(object):
         #it contains only ships and monsters
         self.enemy_list = pygame.sprite.Group()
 
+        Player.containers = self.all_sprites_list, self.player_object_list
+        EnemySmallSpaceship.containers = self.all_sprites_list, self.enemy_object_list, self.enemy_list
+        Whale.containers = self.all_sprites_list, self.enemy_object_list, self.enemy_list
+        Bullet.containers = self.all_sprites_list
+
         self.last_time_enemy_killed = pygame.time.get_ticks()
         self.milliseconds_per_kill = 1500
 
@@ -855,8 +860,6 @@ class Game(object):
 
         # Create the player
         self.player = Player()
-        self.all_sprites_list.add(self.player)
-        self.player_object_list.add(self.player)
 
         self.interval_spawn_enemy = 1500
         self.last_time_spawn_enemy = pygame.time.get_ticks()
@@ -885,18 +888,11 @@ class Game(object):
         """ Create an instance of an enemy. """
         enemy = EnemySmallSpaceship()
         enemy.rect.x = random.randint(0, SCREEN_WIDTH-enemy.rect.width)
-        self.all_sprites_list.add(enemy)
-        self.enemy_object_list.add(enemy)
-        self.enemy_list.add(enemy)
-
+        
     def add_whale(self):
         """ Create an instance of an enemy. """
         enemy = Whale()
         enemy.rect.x = random.randint(0, SCREEN_WIDTH-enemy.rect.width)
-        self.all_sprites_list.add(enemy)
-        self.enemy_object_list.add(enemy)
-        self.enemy_list.add(enemy)
-
 
     def spawn_enemy(self):
         """ Spawn new enemy based on time interval. """
@@ -1034,14 +1030,12 @@ class Game(object):
             # Add new bullet for player
             bullet = self.player.fire()
             if bullet:
-                self.all_sprites_list.add(bullet)
                 self.player_object_list.add(bullet)
 
             # Add new bullet for enemies
             for enemy in self.enemy_list:
                 bullets = enemy.fire()
                 if bullets:
-                    self.all_sprites_list.add(bullets)
                     self.enemy_object_list.add(bullets)
 
             # Check collisions
@@ -1070,21 +1064,14 @@ class Game(object):
                 self.player.collision_sound.play()
 
             # Check for dead objects to be removed
-            dead_list = []
             num_killed_enemy_now = 0
 
             for sprite in self.all_sprites_list:
                 if sprite.physical_obj['hit_points'] <= 0:
                     logger.debug(str(sprite) + '  will be removed')
-                    dead_list.append(sprite)
+                    sprite.kill()
                     if not isinstance(sprite, Bullet):
                         num_killed_enemy_now += 1
-
-            for sprite in dead_list:
-                self.all_sprites_list.remove(sprite)
-                self.player_object_list.remove(sprite)
-                self.enemy_object_list.remove(sprite)
-                self.enemy_list.remove(sprite)
 
             if num_killed_enemy_now > 0:
                 ticks_now = pygame.time.get_ticks()
