@@ -121,12 +121,22 @@ def create_physical_object_dict(score_value=0, hit_points=1,
     return phy_obj
 
 
+def circular_motion():
+    """ Circular motion """
+    #Using generators
+    from itertools import chain
+    radius = 130#SCREEN_WIDTH/3.0
+    num_steps = 100
+    step = math.pi/num_steps
+    concatenated = chain(range(0, num_steps), range(num_steps, 0, -1))
+    angles = (x*step  for x in concatenated)
+    return ((radius * math.cos(angle), radius * math.sin(angle))
+            for angle in angles)
+
 class Whale(pygame.sprite.Sprite):
     """ This class represents the player. Spaceship """
 
     images = []
-    xs_circle = []
-    ys_circle = []
 
     def __init__(self):
         """ Constructor """
@@ -143,10 +153,6 @@ class Whale(pygame.sprite.Sprite):
             Whale.images.append(sprite_sheet.get_image(195, 359, 46, 110)) #pin left, eye left
             Whale.images.append(sprite_sheet.get_image(318, 359, 62, 110)) #pin right, half open mouth
             Whale.images.append(sprite_sheet.get_image(398, 358, 62, 126)) #pin left, open mouth
-        if not Whale.xs_circle:
-            Whale.xs_circle, Whale.ys_circle = self.circular_motion()
-            Whale.xs_circle.extend(reversed(Whale.xs_circle))
-            Whale.ys_circle.extend(reversed(Whale.ys_circle))
 
         self.rect = Whale.images[0].get_rect()
         self.max_speed = 5
@@ -167,8 +173,7 @@ class Whale(pygame.sprite.Sprite):
         self.interval_fire = 1000
 
         self.image_iterator = itertools.cycle(Whale.images)
-        self.x_circle_iterator = itertools.cycle(Whale.xs_circle)
-        self.y_circle_iterator = itertools.cycle(Whale.ys_circle)
+        self._circle_iterator = itertools.cycle(circular_motion())
         self.image = next(self.image_iterator)
         self.picontrol_x = PIController(kp=0.5, ki=0.05, anti_windup=100.0)
         self.picontrol_y = PIController(kp=0.5, ki=0.05, anti_windup=100.0)
@@ -253,16 +258,6 @@ class Whale(pygame.sprite.Sprite):
             self.last_time_change_behaviour = ticks_now
             self.behaviour = (self.behaviour + 1) % 2
 
-    def circular_motion(self):
-        """ Circular motion """
-        r = 130#SCREEN_WIDTH/3.0
-        num_steps = 100
-        step = math.pi/num_steps
-        angles = [x*step  for x in range(0, num_steps)]#range(0,math.pi,step)
-        x_val = [r*cos_val for cos_val in [math.cos(angle) for angle in angles]]
-        y_val = [r*sin_val for sin_val in [math.sin(angle) for angle in angles]]
-        return x_val, y_val
-
     def update(self):
         """ Update whale """
 
@@ -271,8 +266,7 @@ class Whale(pygame.sprite.Sprite):
         enemy_center_x = self.rect.x + self.rect.width//2
         enemy_center_y = self.rect.y + self.rect.height//2
 
-        x_circle = next(self.x_circle_iterator)
-        y_circle = next(self.y_circle_iterator)
+        x_circle, y_circle = next(self._circle_iterator)
 
         if self.behaviour == 1:
 
