@@ -38,6 +38,8 @@ FPS = 60
 PLAYER_HP = 3
 PLAYER_IMMORTAL = False
 
+MAX_NUM_BULLET_AND_PLAYER = 3 + 1  # Max num player bullet on screen plus player
+
 DISPLAY_FLAGS = pygame.HWSURFACE|pygame.DOUBLEBUF|pygame.RESIZABLE
 
 #--- Logger ---
@@ -125,7 +127,7 @@ def circular_motion():
     """ Circular motion """
     #Using generators
     from itertools import chain
-    radius = 130#SCREEN_WIDTH/3.0
+    radius = int(SCREEN_WIDTH/3.0)
     num_steps = 100
     step = math.pi/num_steps
     concatenated = chain(range(0, num_steps), range(num_steps, 0, -1))
@@ -603,6 +605,8 @@ class Player(pygame.sprite.Sprite):
         self.immortality_interval = 800
         self.immortality_always = PLAYER_IMMORTAL
         self.iteration = 0
+        
+        self.reloading = False
 
         self.joypad = JoypadControl()
 
@@ -629,6 +633,8 @@ class Player(pygame.sprite.Sprite):
             if game_event['type'] == 'None' or game_event['value'] == 'None':
                 return None
 
+        firing = False
+
         if game_event['type'] == 'pressed':
             # Figure out if it was an arrow key. If so
             # adjust speed.
@@ -641,7 +647,11 @@ class Player(pygame.sprite.Sprite):
             elif game_event['value'] == 'down':
                 self.y_speed_down = 3
             elif game_event['value'] == 'fire':
-                self._fire()
+                num_bullet_and_player = min(len(group) for group in
+                                            BulletPlayer.containers)
+                if  num_bullet_and_player < MAX_NUM_BULLET_AND_PLAYER:
+                    self._fire()
+
         # User let up on a key
         elif game_event['type'] == 'released':
                 # If it is an arrow key, reset vector back to zero
@@ -654,6 +664,8 @@ class Player(pygame.sprite.Sprite):
             elif game_event['value'] == 'down':
                 self.y_speed_down = 0
         #pos = pygame.mouse.get_pos()
+                
+        self.reloading = firing
 
         #logging.debug('new pos ', self.rect.x, ' ', self.rect.y)
         return None
@@ -1021,6 +1033,7 @@ class Game(object):
                 enemy.set_player_position(player_x, player_y)
 
             self.all_sprites_list.update()
+            
 
             # Check collisions
             player_hp_old = self.player.physical_obj['hit_points']
