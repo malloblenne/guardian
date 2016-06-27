@@ -195,7 +195,7 @@ class Whale(pygame.sprite.Sprite):
         self.player_y_filt = y_pos*alpha + (1.0 - alpha)*self.player_y_filt
 
 
-    def fire(self):
+    def _fire(self):
         """ Create bullet based on time interval"""
         bullets = []
 
@@ -314,6 +314,8 @@ class Whale(pygame.sprite.Sprite):
         elif self.rect.x > SCREEN_WIDTH - self.rect.width:
             self.rect.x = SCREEN_WIDTH - self.rect.width
 
+        #Fire if it is time
+        self._fire()
 
 class EnemySmallSpaceship(pygame.sprite.Sprite):
     """ This class represents a specific enemy. Spaceship """
@@ -363,7 +365,7 @@ class EnemySmallSpaceship(pygame.sprite.Sprite):
         self.player_y = y_pos
 
 
-    def fire(self):
+    def _fire(self):
         """ Create bullet based on time interval"""
         bullets = []
 
@@ -426,6 +428,8 @@ class EnemySmallSpaceship(pygame.sprite.Sprite):
             self.rect.x = 0
         elif self.rect.x > SCREEN_WIDTH - self.rect.width:
             self.rect.x = SCREEN_WIDTH - self.rect.width
+
+        self._fire()
 
 
 def on_keyboard_event_user1(event):
@@ -600,33 +604,18 @@ class Player(pygame.sprite.Sprite):
         self.immortality_always = PLAYER_IMMORTAL
         self.iteration = 0
 
-        self.bullet = None
-
         self.joypad = JoypadControl()
 
-    def create_bullet(self):
+    def _fire(self):
         """ Generate a bullet. """
-        bullet = Bullet(image=self.bullet_image)
+        bullet = BulletPlayer(image=self.bullet_image)
 
         bullet.rect.x = self.rect.x + self.rect.width//2 - bullet.rect.width//2
         bullet.rect.y = self.rect.y
+        if pygame.mixer:
+            self.fire_sound.play()
 
         return bullet
-
-    def fire(self):
-        """ Return bullet if it was prepared for. """
-
-        if self.bullet:
-
-            ret_bullet = self.bullet
-            self.bullet = None
-
-            if pygame.mixer:
-                self.fire_sound.play()
-
-            return ret_bullet
-        else:
-            return None
 
     def process_event(self, event):
         """ Update the player location. """
@@ -652,7 +641,7 @@ class Player(pygame.sprite.Sprite):
             elif game_event['value'] == 'down':
                 self.y_speed_down = 3
             elif game_event['value'] == 'fire':
-                self.bullet = self.create_bullet()
+                self._fire()
         # User let up on a key
         elif game_event['type'] == 'released':
                 # If it is an arrow key, reset vector back to zero
@@ -669,7 +658,7 @@ class Player(pygame.sprite.Sprite):
         #logging.debug('new pos ', self.rect.x, ' ', self.rect.y)
         return None
 
-    def set_temporary_immortality(self):
+    def _set_temporary_immortality(self):
         """ Make immortal after one damage is received """
 
         self.physical_obj['immortal'] = True
@@ -705,7 +694,7 @@ class Player(pygame.sprite.Sprite):
 
         #check if damage received, if so make it immortal for a period of time
         if self.last_hit_points > self.physical_obj['hit_points']:
-            self.set_temporary_immortality()
+            self._set_temporary_immortality()
 
         self.last_hit_points = self.physical_obj['hit_points']
 
@@ -765,6 +754,12 @@ class Bullet(pygame.sprite.Sprite):
         if self.rect.x <= self.rect.width or self.rect.x >= SCREEN_WIDTH:
             self.physical_obj['hit_points'] = 0 #dead
 
+class BulletPlayer(Bullet):
+    """ Placeholder to write less code thanks to container """
+
+    def __init__(self, x_speed=0, y_speed=3, enemy=False, image=None):
+        super().__init__(x_speed, y_speed, enemy, image)
+
 
 def print_text_on_surface(font, str_list, surface, center, offset_line):
     """ Show multi line text on surface """
@@ -813,6 +808,21 @@ class StartScreen(object):
         print_text_on_surface(self.font, ['press to start'],
                               surface, text_pos, 14)
 
+
+
+def add_enemy():
+    """ Create an instance of an enemy. """
+    enemy = EnemySmallSpaceship()
+    enemy.rect.x = random.randint(0, SCREEN_WIDTH-enemy.rect.width)
+    return enemy
+
+def add_whale():
+    """ Create an instance of an enemy. """
+    enemy = Whale()
+    enemy.rect.x = random.randint(0, SCREEN_WIDTH-enemy.rect.width)
+    return enemy
+
+
 class Game(object):
     """ This class represents an instance of the game. If we need to
         reset the game we'd just need to create a new instance of this
@@ -845,7 +855,8 @@ class Game(object):
         Player.containers = self.all_sprites_list, self.player_object_list
         EnemySmallSpaceship.containers = self.all_sprites_list, self.enemy_object_list, self.enemy_list
         Whale.containers = self.all_sprites_list, self.enemy_object_list, self.enemy_list
-        Bullet.containers = self.all_sprites_list
+        Bullet.containers = self.all_sprites_list, self.enemy_object_list
+        BulletPlayer.containers = self.all_sprites_list, self.player_object_list
 
         self.last_time_enemy_killed = pygame.time.get_ticks()
         self.milliseconds_per_kill = 1500
@@ -861,7 +872,7 @@ class Game(object):
         self.max_score = 0
 
         # Test boss
-        #self.add_whale()
+        #add_whale()
 
         self.start_screen_obj.play_music()
 
@@ -878,16 +889,6 @@ class Game(object):
         self.center_map = [self.map_layer.map_rect.width//2,
                            self.map_layer.map_rect.height - SCREEN_HEIGHT//2]
 
-    def add_enemy(self):
-        """ Create an instance of an enemy. """
-        enemy = EnemySmallSpaceship()
-        enemy.rect.x = random.randint(0, SCREEN_WIDTH-enemy.rect.width)
-        
-    def add_whale(self):
-        """ Create an instance of an enemy. """
-        enemy = Whale()
-        enemy.rect.x = random.randint(0, SCREEN_WIDTH-enemy.rect.width)
-
     def spawn_enemy(self):
         """ Spawn new enemy based on time interval. """
         ticks_now = pygame.time.get_ticks()
@@ -899,11 +900,11 @@ class Game(object):
             self.last_time_spawn_enemy = ticks_now
             # The boss can be spawn only when score is high
             if self.player.score < 50:
-                self.add_enemy()
+                add_enemy()
             elif random.random() < 0.95:
-                self.add_enemy()
+                add_enemy()
             else:
-                self.add_whale()
+                add_whale()
                 # Slow down spawn of monster for some time
                 slow_down_time = 60*1000 # 1 min
                 self.last_time_spawn_enemy = ticks_now + slow_down_time
@@ -1020,17 +1021,6 @@ class Game(object):
                 enemy.set_player_position(player_x, player_y)
 
             self.all_sprites_list.update()
-
-            # Add new bullet for player
-            bullet = self.player.fire()
-            if bullet:
-                self.player_object_list.add(bullet)
-
-            # Add new bullet for enemies
-            for enemy in self.enemy_list:
-                bullets = enemy.fire()
-                if bullets:
-                    self.enemy_object_list.add(bullets)
 
             # Check collisions
             player_hp_old = self.player.physical_obj['hit_points']
