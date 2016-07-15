@@ -102,8 +102,8 @@ class PIController(object):
 
     def __repr__(self):
         """ Representation of the object """
-        return "PIController(kp={0}, ki={1}, anti_windup={2})".format(self.kp_gain,
-                             self.ki_gain, self.anti_windup)
+        msg = "PIController(kp={0}, ki={1}, anti_windup={2})"
+        return msg.format(self.kp_gain, self.ki_gain, self.anti_windup)
 
 
 def exponential_smoothing(alpha, val, old_filt_val):
@@ -605,7 +605,7 @@ class Player(pygame.sprite.Sprite):
         self.immortality_interval = 800
         self.immortality_always = PLAYER_IMMORTAL
         self.iteration = 0
-        
+
         self.reloading = False
 
         self.joypad = JoypadControl()
@@ -664,7 +664,7 @@ class Player(pygame.sprite.Sprite):
             elif game_event['value'] == 'down':
                 self.y_speed_down = 0
         #pos = pygame.mouse.get_pos()
-                
+
         self.reloading = firing
 
         #logging.debug('new pos ', self.rect.x, ' ', self.rect.y)
@@ -844,6 +844,10 @@ class Game(object):
     # In this case, all the data we need
     # to run our game.
 
+    # variables for resize
+    size_fixed = [SCREEN_WIDTH, SCREEN_HEIGHT]
+    center_image_resize = (0, 0)
+
     # --- Class methods
     # Set up the game
     def __init__(self):
@@ -948,6 +952,26 @@ class Game(object):
             elif event.type == pygame.VIDEORESIZE:
                 size_screen = event.dict['size']
                 screen = pygame.display.set_mode(size_screen, DISPLAY_FLAGS)
+
+
+                size = [SCREEN_WIDTH, SCREEN_HEIGHT]
+                min_div = min(float(size_screen[0]) / size[0],
+                              float(size_screen[1]) / size[1])
+
+                #min_div = min(min_div, 1.0) #size original or smaller
+
+                Game.size_fixed = [int(dim * min_div) for dim in size]
+                #print('val', min_div, 'size_fixed', self.size_fixed)
+
+
+                center_fixed = [i // 2 for i in self.size_fixed]
+                center_resize = [i // 2 for i in size_screen]
+
+                Game.center_image_resize = (center_resize[0] - center_fixed[0],
+                                            center_resize[1] - center_fixed[1])
+                screen.fill(BLACK)
+                screen = pygame.display.set_mode(size_screen, DISPLAY_FLAGS)
+
                 return False, screen
             if (self.game_over and
                 (event.type == pygame.MOUSEBUTTONDOWN or
@@ -1033,7 +1057,7 @@ class Game(object):
                 enemy.set_player_position(player_x, player_y)
 
             self.all_sprites_list.update()
-            
+
 
             # Check collisions
             player_hp_old = self.player.physical_obj['hit_points']
@@ -1137,7 +1161,10 @@ class Game(object):
                 surface_fixed_size.blit(text_pause, [center_x, center_y])
 
 
-        true_screen.blit(pygame.transform.scale(surface_fixed_size, true_screen.get_size()), (0, 0))
+        true_screen.blit(pygame.transform.scale(surface_fixed_size,
+                                                Game.size_fixed),
+                         Game.center_image_resize)
+
         pygame.display.flip()
 
 
