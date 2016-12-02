@@ -52,6 +52,13 @@ But I want to keep the game enjoyable and fun.
  * Press any buttons (numbers < 8) to shoot
  * Press button 7 or 8 to pause
 
+### Tests
+
+<a href="https://scan.coverity.com/projects/malloblenne-guardian">
+  <img alt="Coverity Scan Build Status"
+       src="https://scan.coverity.com/projects/11030/badge.svg"/>
+</a>
+
 ## Copyright
 
 Images and sounds were downloaded via the Internet. The authors can request to the developer to have them removed in case of law infringments. 
