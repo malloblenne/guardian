@@ -1,0 +1,20 @@
+language: python
+
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "GElZDXjLOcwzmh0XfyuzfBDaZGkSuiYItNkQT6M8Ok2Hv76O8EDsSOQCTQbJ94Yj+tNL/B73Y4NsbsGPiKMkaRUq3yGw/5ZpeFm6F/oi0nQgMNqLRkcQnHiHP8Yj2tAnTwpI1fbM338TBsVf3N6h1rbcIIRQSBCWMljg3656XPfE+Xh2jDDnYBKqSXMnl6RNB1mjeAW98frVx2oqfZJrSwGMQpP7aCOt/zZDb7mfT0fkp5SHorQqch2TJnu+VIRD3GZj/CS2Cs2Y5ZlEI0M1EqBSCmOic4TYg6MLPCbWlZlnJB643wbOp2pJNl1IttdOywhFysggDfLpfooNm11ZlOp/rzl7UORgLMyPBLCP/BWzPFhUW0SnSGkC6rjveniAwDFjCfzbiuFbLdEhoPmpiLQ/MCba6Sm5um9jEtpDqzj0TM08F0aPhxwmw0nLQ32lCrgJW2dloEOgSjoRHF2XGWICjyeV6E3Y/o3y4QEgyVH7JnOJQ4+Hvz90xAqMne/qOhbvHx/87FMnmHJ+5sviy1KAA+KNgmqtMz4KFYM+gtLUmiwp8qZfYMgQDA9RB+lIPq1T5TLCyABq79dQR9B9GoBcQB76C2mCzRJCMRLJBI4VCFdOpHdSCKfoWmHqzvmNrCJ3KRhnJ0euBIJZEFJJ7MMzPIpq02RWl/KjoyIB5TU="
+
+before_install:
+      - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
+
+addons:
+  coverity_scan:
+    project:
+      name: "malloblenne/guardian"
+      description: "Build submitted via Travis CI"
+    notification_email: malloblenne@gmail.com
+    build_command_prepend: ""
+    build_command:   ""
+    branch_pattern: coverity_scan
