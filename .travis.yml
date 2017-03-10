@@ -1,10 +1,11 @@
 language: python
-
+python:
+   - "3.6"
 env:
   global:
    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
    #   via the "travis encrypt" command using the project repo's public key
-   - secure: "GElZDXjLOcwzmh0XfyuzfBDaZGkSuiYItNkQT6M8Ok2Hv76O8EDsSOQCTQbJ94Yj+tNL/B73Y4NsbsGPiKMkaRUq3yGw/5ZpeFm6F/oi0nQgMNqLRkcQnHiHP8Yj2tAnTwpI1fbM338TBsVf3N6h1rbcIIRQSBCWMljg3656XPfE+Xh2jDDnYBKqSXMnl6RNB1mjeAW98frVx2oqfZJrSwGMQpP7aCOt/zZDb7mfT0fkp5SHorQqch2TJnu+VIRD3GZj/CS2Cs2Y5ZlEI0M1EqBSCmOic4TYg6MLPCbWlZlnJB643wbOp2pJNl1IttdOywhFysggDfLpfooNm11ZlOp/rzl7UORgLMyPBLCP/BWzPFhUW0SnSGkC6rjveniAwDFjCfzbiuFbLdEhoPmpiLQ/MCba6Sm5um9jEtpDqzj0TM08F0aPhxwmw0nLQ32lCrgJW2dloEOgSjoRHF2XGWICjyeV6E3Y/o3y4QEgyVH7JnOJQ4+Hvz90xAqMne/qOhbvHx/87FMnmHJ+5sviy1KAA+KNgmqtMz4KFYM+gtLUmiwp8qZfYMgQDA9RB+lIPq1T5TLCyABq79dQR9B9GoBcQB76C2mCzRJCMRLJBI4VCFdOpHdSCKfoWmHqzvmNrCJ3KRhnJ0euBIJZEFJJ7MMzPIpq02RWl/KjoyIB5TU="
+   - secure: "Gzj4Vzi02Axyjcm9yOQpwzN3ayfFhMnbRBPF8P3Z/LMf0YIuBIYW5Pn85aR+PNgD+91hMpcF0hRzP+SC7jUNy9PAL6ednbSIJoxSneS3dZudXvU9o2fXLesrYmnre7jBAOSd3QvzY09T9hoNg6bcYRfPdT3fYVvQWHGcgXMTNOwkZQFuTAUpMwVJVC9NnKpvxbGyHXXivDlxSKea/EfAFKmt9aGPXVoWIgyO7ece6/tNRdYp/HJKkqRbz0NBHFnSQGb+cFkSnDWs5GoPppR46KJ3j3fFqJs3iaAJ/ZPviOGXQT07pF85hn4xIoUShmCSSL7CHM4HL/KgLF2OTdPtglGL+lxm3oBfQyMHZMaoVo4UYPzbvf0IIwae1YfumcpjrOdvGemWKZT2dFrXSA7ayoj73ieEkRLoEwdqgBQ9suOy4+dbHaZJDwc061dEdNHjjD7mhfAF4z9F/oZT0Cth1UL3L35O5ztBlGBEsjXgSlEFsvl0sM1coXPBeVgt00+ewHoUL+vFZCHB72hlIeAEdgwie5XyUIlzIwcWcG3qW/+zwurlgVNXkxt8TZkNBEXdIvCJ3sZ+IVs5Fu6p8YMJlOYMziK1dDZiEPIeYQwQXayQsw9VfPdUldQ2uDj7JYAXI5+GEJhkGJskmspI0SsjOxuS8QGApHBzHudIaVJH5ZI="
 
 before_install:
       - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
