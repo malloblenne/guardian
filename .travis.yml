@@ -19,5 +19,5 @@ addons:
     build_command_prepend: ""
     build_command:   pytest
     branch_pattern:  coverity-travis
-	
+
 script: pytest
