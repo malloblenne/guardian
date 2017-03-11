@@ -5,7 +5,7 @@ env:
   global:
    # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
    #   via the "travis encrypt" command using the project repo's public key
-   - secure: "yL2k6e8fnJ/NAT1PYedNorEtn7c8V/dqoqyqxNyCbOxwGZSNx0c5iKLm/sazkCsDhuQ/yBVU8fS0mI85VzRe5HoQc2XJAAo3DWWfw6CmXssmESO6Hm00YSZer6kG2205cPw2T5VBF8K6F2u1/YraNu32o5tcANkc3xhzFTaJR3uLixSMvMeGkyF3EZ6z64zBDw/coYFnL5KAGqcsShf3rimC8Uwv4reisRLBT+YcldU0XWMzD+pxpKdgEjtrKEMzadVRA0yFUndVKwMo1dhWVEoL/l8COJwdq/6B5U6kfTrWV0qtMZVXP0QfkIoVcr5IgsKZ+bdoisBudEYlSW7DvPN8C3PEXANoN8UPDak/wlkUfpY4inaX9ociCaX+EljPRP9Ygronm88RaIbxprmau5lFKH9fwSIV0U3ryQqzPT3z/lF4Y9sc8xM/I6x/HTUAi1Jp7z0MEAsOGdpzZ92pNs+sBqunWmQQMGFZ3DT68kzZq4qUyDAuEdzeoB3EFwsPgfagcnR+feOK1LtNrltOEVqNfwhvGzMoEpUKkQNJg8H9XYrUBjNP89ljgN+ZuXXstIOpU6n0CPFPTr+rm6mwBVXY4ZrFYfVRlWdXDDDQofktNyY0G8UEMFhGi0IOqPSwtsBFn2vGq7+YegXsQdMQw7a69OyeT+2AAh/enzefJjk="
+   - secure: "OKdJ4MPU6k7anmIWwenkFls4AU22FFUpgOMsIrpdgmpc2JCbpiZ/OOR0dAP4ocOY2JggQr8hgc7D5b+HfnJKWng5SE/L9uI70PX9vjkxwc57VKTXEnCtRJV7MJv0g74axIyYvppyCzEaQDmBZJW1pRXRm6carGpV8gPncttm8ylPlu7Sy/JuQqxF2J10HYyDcUBYM6dhSX6Ecwzr/lSz4+pXL5TPW++ALKCF6eWIzA7QQmLW8VrOJfUuO+T3fqyRb8PItOZ8XmQF2jHsWtuNSLVP0i9ZHxKrsYsP162QnXdBMdbzQTbjcxtg9ImNkfcmUljDoCcoWV35X9HU1sEQfLTu1P8Evx4RwlaEkoWTsDEV8xvRq6gYM0Yoo63sIvyXJE7IhnGHLdR5yOUWnaNTdTMjIgCWtGEKcJHihPW+XJpu5d3iYBKgsMlLm1EpUia4QO2cVrJgq9feil3Wqd/ScFCOKmmMe1r610cq8VE17eJFYXssrPnUdaF70qglC3KWpzTvGPoN6O+f4C7Ydf5RtaVSF1c4seYHFE3hHu7A4XCIhdELuHxudk5+dLsJesIBFL5H4XoirLYXcNEVRM4thJMdJ1zK61KBXmZHkdeaPikVDhylYK2PdDPeAJV1Pq2lFHAw2B8Kh5o6FLPQ71cxulOuCOcUNIN1JsE8vw5vjrE="
 
 before_install:
       - echo -n | openssl s_client -connect scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
@@ -17,5 +17,7 @@ addons:
       description: "Build submitted via Travis CI"
     notification_email: malloblenne@gmail.com
     build_command_prepend: ""
-    build_command:   ""
-    branch_pattern: coverity_scan
+    build_command:   pytest
+    branch_pattern: coverity-travis
+	
+script: pytest
