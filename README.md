@@ -54,6 +54,8 @@ But I want to keep the game enjoyable and fun.
 
 ### Tests
 
+[![Build Status](https://travis-ci.org/malloblenne/guardian.svg?branch=master)](https://travis-ci.org/malloblenne/guardian)
+
 <a href="https://scan.coverity.com/projects/malloblenne-guardian">
   <img alt="Coverity Scan Build Status"
        src="https://scan.coverity.com/projects/11030/badge.svg"/>
