@@ -1,3 +1,6 @@
+-e .
+
 pygame
 pytmx
 pyscroll
+pytest
