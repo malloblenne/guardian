@@ -22,6 +22,7 @@ python = "^3.8"
 pygame = "^2.6.1"
 pytmx = "^3.32"
 pyscroll = "^2.31"
+pyyaml = "^6.0.2"
 
 
 [tool.poetry.group.dev.dependencies]
