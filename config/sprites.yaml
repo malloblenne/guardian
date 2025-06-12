@@ -1,0 +1,127 @@
+# Sprite Configuration for Guardian Game
+# Format: sprite_name -> {file, sprites: {name: [x, y, width, height]}}
+
+sprite_sheets:
+  bosses:
+    file: "bitmaps/bosses.png"
+    color_key: [0, 0, 0]  # Black
+    sprites:
+      whale_eye_right: [82, 359, 46, 110]
+      whale_eye_center: [138, 359, 46, 110]
+      whale_eye_left: [195, 359, 46, 110]
+      whale_mouth_half: [318, 359, 62, 110]
+      whale_mouth_open: [398, 358, 62, 126]
+      window_icon: [99, 312, 32, 32]
+
+  the_guardian:
+    file: "bitmaps/theGuardian.png"
+    color_key: [38, 0, 0]  # Dark red
+    sprites:
+      player_normal: [7, 87, 23, 30]
+      player_power1: [65, 87, 23, 30]
+      player_power2: [95, 87, 23, 30]
+      player_left: [155, 87, 23, 30]
+      player_reverse: [391, 46, 25, 28]
+      player_reverse_tilt1: [366, 46, 18, 28]
+      player_reverse_tilt2: [345, 47, 14, 27]
+
+  enemies:
+    file: "bitmaps/enemies.png"
+    color_key: [3, 0, 38]  # Dark purple
+    sprites:
+      small_ship_center: [35, 95, 16, 14]
+      small_ship_right: [58, 95, 13, 16]
+
+  bullets:
+    file: "bitmaps/bullet.png"
+    color_key: [38, 0, 0]  # Dark red
+    sprites:
+      player_bullet: [8, 4, 7, 21]
+
+  startup:
+    file: "bitmaps/originalStartup.png"
+    color_key: [0, 0, 0]  # Black
+    sprites:
+      eye_logo: [80, 0, 96, 88]
+
+# Enemy configurations for easy extension
+enemy_types:
+  small_spaceship:
+    sprite_sheet: "enemies"
+    sprites:
+      center: "small_ship_center"
+      left: "small_ship_left"  # Will be flipped from right
+      right: "small_ship_right"
+    hp: 1
+    damage: 1
+    score_value: 2
+    speed: 10.0
+    ai_type: "chase_player"
+    fire_interval: 700  # milliseconds
+
+  whale_boss:
+    sprite_sheet: "bosses"
+    sprites:
+      eye_right: "whale_eye_right"
+      eye_center: "whale_eye_center"
+      eye_left: "whale_eye_left"
+      mouth_half: "whale_mouth_half"
+      mouth_open: "whale_mouth_open"
+    hp: 50
+    damage: 1
+    score_value: 4  # 200/50
+    speed: 5.0
+    ai_type: "circular_chase"
+    fire_interval: 1000
+
+# Player configuration
+player:
+  sprite_sheet: "the_guardian"
+  sprites:
+    normal: "player_normal"
+    power1: "player_power1"
+    power2: "player_power2"
+    left: "player_left"
+    right: "player_right"  # Will be flipped from left
+    reverse: "player_reverse"
+    reverse_tilt1: "player_reverse_tilt1"
+    reverse_tilt2: "player_reverse_tilt2"
+  hp: 3  # PLAYER_HP
+  damage: 1
+  speed: 3
+  immortality_interval: 800
+  max_bullets: 3
+
+# UI configuration
+ui:
+  start_screen:
+    sprite_sheet: "startup"
+    logo_sprite: "eye_logo"
+    logo_position: [80, 0]
+  fonts:
+    main: "fonts/PressStart2P.ttf"
+    title_size: 12
+    regular_size: 8
+
+# Audio configuration  
+audio:
+  music:
+    title: "sounds/title.mid"
+    corridor: "sounds/corridor-0.mid"
+    game_over: "sounds/game-over.mid"
+
+# Game configuration
+game:
+  screen:
+    width: 256
+    height: 220
+  physics:
+    scroll_speed: 4
+    max_bullets: 3  # MAX_NUM_BULLET_AND_PLAYER - 1
+  colors:
+    black: [0, 0, 0]
+    white: [255, 255, 255]
+    green: [0, 255, 0]
+    red: [255, 0, 0]
+    purple: [128, 0, 128]
+    red_eye: [219, 43, 0]
